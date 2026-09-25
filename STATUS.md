@@ -3,7 +3,7 @@
 **Doel:** eerste bestand bij hervatten. Legt vast waar we staan, wat bewezen is,
 en welke keuzes waarom zijn gemaakt — zodat niets herhaald hoeft te worden.
 
-Laatst bijgewerkt: 2026-09-24. **50/50 tests groen; alle prestatiegetallen
+Laatst bijgewerkt: 2026-09-25. **57/57 tests groen; alle prestatiegetallen
 gemeten, niet geschat.**
 
 > **Over deze versie:** de vorige STATUS.md (28 KB) bevatte voor het grootste
@@ -169,6 +169,52 @@ direct. Een tweede les: mijn eerste meting van dit venster zei 0,003 µs — gem
 tegen de huidige wortel, die via de eerste toets meteen terugkeert. De echte
 scan kost 25× meer. Meet het pad dat je bedoelt, niet het dichtstbijzijnde.
 
+## 3d. Anonimiteitsmodel: menigte in de emmer (vastgelegd, met getal)
+
+**Wat ik eerst dacht en waarom het niet deugt.** Als optie voor de bestedings-
+laag stond erin: "begrenze sets, de hele set meesturen — eenvoudig, PQ-veilig".
+Dat is twee keer onjuist. Grootte: 1.000 commitments à 64 byte is 64 KB tegen
+een limiet van 4.096 — vijftien keer te groot. Erger: het model anoniemeert
+niets. Wie zijn eigen opening meestuurt, geeft de verifieerder de mogelijkheid
+te hashen en te kijken welke notitie het was. De anonimiteit verdwijnt op het
+moment dat je hem bewijst.
+
+**Wat wél kan met alleen hashes en PQ-handtekeningen.** Een besteding maakt
+publiek: één nullifier (zonder geheim niet koppelbaar aan een commitment) en
+één nieuwe commitment. Een waarnemer ziet dus alleen: in emmer (epoch, niveau)
+is er één verbrand en één bijgekomen. Het aantal notan van dát niveau in dát
+epoch bepaalt hoeveel kandidaten hij heeft om input aan output te koppelen.
+
+**De eigenschap die dit bruikbaar maakt: de anonimiteitset kost nul extra
+bytes.** Hij groeit met gebruik, niet met transactiegrootte. Vergelijk dat met
+het set-model, waar een tiemaal zo grote set tienmaal zoveel bytes kostte.
+
+| gemeten | waarde |
+|---|---|
+| bestedingsrecord (nullifier + commitment) | **128 byte** |
+| + FN-DSA-512 handtekening | 937 byte |
+| + ~200 byte instructie-/accountoverhead | **1.137 byte van 4.096** |
+| tijd per besteding (20.000 records) | **4,85 µs** |
+| kandidaten bij emmer van doel 100 | 101 (de +1 is de zojuist geminte output) |
+
+**De knop is dus een gebruiksknop, en die is een productkeuze:** `DOELMENIGTE =
+100` in `src/spend.rs`. Daaronder is een besteding bij benadering koppelbaar;
+de code dwingt niets af, want de keten kan niet weten hoeveel opnames "genoeg"
+zijn. Wat wél afgedwongen wordt: niveauvastheid per besteding, en dubbeluitgave.
+
+**Twee grootheden, niet één.** Mijn eerste testbewering ("besteden houdt de
+emmer gelijk groot") faalde, en kwam door mijn eigen redenering: een besteding
+voegt wél een commitment toe (opnames +1) en haalt één besteedbare notitie weg
+(live −1). Opnames zijn de kandidatenlijst voor "welke output is van mij", live
+die voor "welke input verbrandde dit". Beide staan nu expliciet in de code
+(`menigte` en `live`).
+
+**Wat het model niet is:** geen sterke unlinkability. Het is menigte-anonimiteit
+binnen (epoch, niveau) — sterker naarmate de emmer voller is, en met opzet
+doorzichtbaar voor een houders van de auditsleutel via de audit-tag. Voor
+stereografie zonder aannames is nog steeds een één-van-N-bewijs nodig, en dat
+bestaat post-kwantum niet in geauditeerde vorm.
+
 ## 4. Afhankelijkheden en veiligheid
 
 | crate | gebruik | status |
@@ -211,20 +257,19 @@ netjes.
 
 ## 6. Openstaand
 
-1. **Anonieme bestedingslaag.** Het enige echte ontwerpprobleem. Opties:
-   (a) begrenze sets met meesturen van de hele set — eenvoudig, PQ-veilig,
-   lineair in setgrootte; (b) wachten op PQ-ringhandtekeningen (research);
-   (c) een ander model voor anonimiteit kiezen. Geen SNARK: die breekt de
-   post-kwantum-eigenschap die dit project zijn bestaansrecht geeft.
+1. **Anonieme bestedingslaag** — **model vastgelegd** (zie 3d): menigte binnen
+   emmer (epoch, niveau), record 128 byte, anonimiteit kost geen extra bytes.
+   Optie "hele set meesturen" is vervallen: te groot én niet anoniem. Sterkere
+   unlinkability wacht op PQ-ringhandtekeningen (research).
 2. **Solana-integratie.** Nog geen code. Eerst de vergelijking met Light
    Protocol; daarna pas beslissen of eigen code nodig is.
 3. **Hybride signatuur.** FN-DSA (Falcon) + Ed25519 — niet ML-DSA, want dat is
    niet wat Solana kiest. Met gepinde versies en vrachtaudit in de CI. Let op:
    `falcon-rs` is niet geauditeerd; voor productie is een auditeerde bron nodig
    of een eigen audit.
-4. **Anonimiteitssetgrootte vastleggen** — nu een echte rekensom: 4.096 − 809
-   (FN-DSA-512) − ~200 (instructie/accountoverhead) ≈ 3.000 byte vrij, dus twee
-   inputs bij een set van 100.000, of één input bij een grotere set.
+4. **Anonimiteitssetgrootte** — vastgelegd als `DOELMENIGTE = 100` per emmer
+   (3d). Restende vraag is geen formaatvraag meer maar een vraag over verwachte
+   opnames per epoch per niveau.
 5. **Concurrentie** — **opgelost**: acceptatievenster, gemeten 73–85 ns (3c).
 
 ---
@@ -232,7 +277,7 @@ netjes.
 ## 7. Werken met deze repo
 
 ```bash
-cargo test                                 # 50 tests, inclusief aanvallen
+cargo test                                 # 57 tests, inclusief aanvallen
 cargo test -- --ignored --nocapture        # meetladder + PQ-ondergrens
 cargo test --offline                       # zonder netwerk
 ```
