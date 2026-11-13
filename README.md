@@ -1,90 +1,102 @@
 # gravity-ledger
 
-Hash-only lidmaatschap en waardenbehoud — een Rust-basislaag die verifieert dat
-notan in een accumulator horen, en dat waarde behouden blijft, zonder getallen
-te onthullen.
+A Rust library for a ledger of fixed-denomination coins, with a BLAKE3 Merkle
+accumulator and visible, Ed25519-signed spends.
 
-**Wat het is:** een bewezen, gemeten kern — hashlaag, notan-commitments,
-incrementele Merkle-accumulator met acceptatievenster voor gelijktijdige
-schrijvers, en waardenbehoud-telling.
+**Status: research prototype, not audited. Do not use it for real value or in
+production.**
 
-**Wat het níet is (nog niet):** een anonieme bestedingslaag. Een bewijs dat je
-het geheim bezit bij *één van de N* notan zonder te zeggen welke, bestaat als
-post-kwantum primitief niet in productie. Zie `STATUS.md` sectie 6.
+## What it does
 
-## Architectuur
+- Coins have 33 denomination levels, 2^0 to 2^32. Each coin enters an
+  append-only Merkle accumulator as a leaf over its level and its commitment;
+  the leaf is bound to its position. Every hash is BLAKE3 extended to 64 bytes,
+  with a separate domain tag per context.
+- A spend is visible and signed with Ed25519 (`verify_strict`).
+- The ledger itself computes the input commitment, its leaf and the nullifier
+  from the opening in the record, and checks membership of that leaf against a
+  root in the acceptance window (the last 64 roots). The spender supplies the
+  opening, the root, the proof and the output commitment; the output
+  commitment is signed but not checked.
+- A spend has exactly one input and one output at the same denomination level,
+  so a spend cannot change value. `Shape::check` (a count per level for
+  transactions with several inputs and outputs) exists but is not used by
+  `Ledger::besteed`.
+- A nullifier can be burned only once, so a coin cannot be spent twice.
 
-| laag | bestand | wat het doet |
-|---|---|---|
-| hash | `src/hash.rs` | BLAKE3 extended naar 64 byte (XOF), met domeinscheiding per context |
-| notan | `src/note.rs` | commitment, nullifier en audit-tag per noot; 33 denominaties (2^0…2^32) |
-| accumulator | `src/tree.rs` | append-only Merkle-boom, incrementeel, index-gebonden bladeren, wortel-venster |
-| behoud | `src/conservation.rs` | waardenbehoud als telling over 33 niveaus — geen reeks-bewijzen nodig |
-| keten | `src/lib.rs` | mint / nullify / root; dubbeluitgave-afdoening |
-| meting | `src/bench.rs` | alle getallen hieronder, als `#[ignore]`-test in de repo |
+## What it does not do
 
-## Gemeten (release-build, één kern)
+- There is no anonymity: the input and the output of a spend can be linked,
+  and the public key and the denomination are visible.
+- There are no post-quantum signatures in production code.
+- `Ledger::mint` does not check who mints, nor the level or epoch of the
+  coin: anyone who can call it creates value. A deployment must restrict
+  minting.
+- There is no Solana integration yet; no code for it exists.
+- The root and the proof are not signed, so up to 64 variants of the same spend
+  record exist, and anyone who has the record and the accumulator state at
+  another root in the window can produce them. Never use a hash
+  of a record as a transaction identifier; use the nullifier.
 
-| anonimiteitsset | mint | wortel | bewijs | verifiëren | +venster |
-|---|---|---|---|---|---|
-| 1.000 | 2,6 µs | 2 ns | 650 byte | 2,7 µs | 2,6 µs |
-| 10.000 | 3,3 µs | 2 ns | 910 byte | 3,5 µs | 3,5 µs |
-| 100.000 | 4,1 µs | 2 ns | 1.105 byte | 4,2 µs | 4,3 µs |
+## Spend record (version 1)
 
-Waardebehoud: **19 ns**. Vensterscan: **73–85 ns**.
+Integers are u64 little-endian. A record is **276 + 64 × depth** bytes, with a
+depth of at most 64.
 
-Post-kwantum handtekeningen (zelfde harness):
+| field | bytes |
+|---|---|
+| version (`0x01`) | 1 |
+| scheme (`0x01` = Ed25519) | 1 |
+| input index | 8 |
+| denomination level (< 33) | 1 |
+| input epoch | 8 |
+| input secret | 32 |
+| public key | 32 |
+| root (in the acceptance window) | 64 |
+| depth | 1 |
+| proof | 64 × depth |
+| output commitment | 64 |
+| signature | 64 |
 
-| | publieke sleutel | signatuur | signeren | verifiëren |
-|---|---|---|---|---|
-| **FN-DSA-512** (Falcon) | 897 byte | **809 byte** | 480 µs | 51 µs |
-| FN-DSA-1024 (Falcon) | 1.793 byte | 1.577 byte | 526 µs | 49 µs |
-| ML-DSA-44 | 1.312 byte | 2.420 byte | 148 µs | 29 µs |
-| ML-DSA-87 | 2.592 byte | 4.627 byte | 258 µs | 79 µs |
+`dsh(tag, parts)` is BLAKE3 extended to 64 bytes over a domain-separated
+encoding: a fixed prefix, the length of the tag, the tag, and each part
+preceded by its length (lengths as u64 little-endian). `chain` is the 32-byte
+identity of the chain (`ChainId`) that a ledger is created with
+(`Ledger::new`); it goes into every commitment, nullifier and signed message,
+so a record for one chain is not valid on another.
 
-**Gevolg voor het ontwerp:** Solana noemt FALCON als richting (Anza, SIMD-0461)
-en dat is meetbaar de juiste keuze — drie keer kleiner dan ML-DSA-44. Budget per
-besteding: 809 + 1.105 = **1.914 byte** tegen een limiet van 4.096 (SIMD-0296,
-live sinds 15 september 2026). De handtekening bepaalt de ondergrens, dus:
-**één handtekening per transactie**, niet per noot.
+The nullifier is `N = dsh("GL/nullify/v1", [chain, input index, input
+commitment])`. The signature covers `M = dsh("GL/besteding/v1", [chain,
+version, scheme, N, level, output commitment])`; the root and the proof are
+not part of it.
 
-## Bouwen en testen
+| leaves | depth | proof | record |
+|---|---|---|---|
+| 1,000 | 10 | 640 bytes | 916 bytes |
+| 10,000 | 14 | 896 bytes | 1,172 bytes |
+| 100,000 | 17 | 1,088 bytes | 1,364 bytes |
+
+## Build and test
 
 ```bash
-cargo test                                # 50 tests
-cargo test -- --ignored --nocapture       # de metingen hierboven
+cargo test                                    # the test suite
+cargo test --release -- --ignored --nocapture # the measurements
 ```
 
-## Afhankelijkheden en auditstatus
+After the first download of the dependencies, `--offline` can be added to
+either command. The measurement command also prints the post-quantum
+signature measurements (FN-DSA and ML-DSA, from the dev-dependencies).
 
-| crate | waarvoor | status |
-|---|---|---|
-| `blake3` 1.8.6 | enige primitief in productiecode | officiële implementatie, NCC Group-geaudit (2020) |
-| `sha2` 0.10.9 | dev-only: onafhankelijke KAT-vectoren | RustCrypto |
-| `dilithium-rs` 0.4.1 | dev-only: PQ-meting | twee auditrondes, alle twaalf bevindingen fixed |
-| `falcon-rs` 0.3.1 | dev-only: PQ-meting | niet geauditeerd — meten ja, tekenen nee |
+Rust version: the suite passes on Rust 1.89 and on stable 1.97.1; the minimum
+supported version has not been determined.
 
-Vrachtaudit draait: `cargo audit` tegen 1.269 RustSec-advisories, geen
-kwetsbaarheden in de 25+ afhankelijkheden. De scanner is daarvóór gevalideerd op
-een opzettelijk kwetsbaar project (vond RUSTSEC-2022-0093 en -2024-0344).
+## Further reading
 
-## Waarom geen Light Protocol, geen SNARK
-
-Light Protocol (ZK Compression) is volwassen — drie audits, productiegebruik —
-maar hun boom hashet Poseidon over **BN254** (`ark-bn254`) en het protocol wordt
-geleverd met gnark-toetsen. Dat betekent ~32-byte knooppunten (onder BHT ruwweg
-85 bit botsingsvastheid) en een SNARK met setup. Onze bindende commitment is
-juist dát wat niet verwaterd mag worden: een botsing in de boom is nieuw geld.
-Wat we wél overnemen is hun audit-lat en hun inzicht dat één boom veel
-gelijktijdige schrijvers moet kunnen hebben.
-
-## Open
-
-1. Anonieme bestedingslaag — vereist een "één van de N"-bewijs (research, geen
-   implementatie).
-2. Solana-integratie — nog geen regel code.
-3. Hybride signatuur FN-DSA + Ed25519, met gepinde versies en vrachtaudit in CI.
+- `STATUS.md`: design, decisions and open points (in Dutch).
+- `docs/`: measurements with machine and method, and the external review of
+  10 November 2026 (both in Dutch).
+- `SECURITY.md`: what the code protects and how to report a vulnerability.
 
 ## License
 
-Apache-2.0
+Apache-2.0; see `LICENSE`.

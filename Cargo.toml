@@ -1,0 +1,25 @@
+[package]
+name = "gravity-ledger"
+version = "0.1.0"
+edition = "2021"
+description = "Research prototype, not audited: a fixed-denomination ledger with a BLAKE3 Merkle accumulator and visible, Ed25519-signed spends."
+license = "Apache-2.0"
+repository = "https://github.com/anoadder-ship-it/gravity-ledger"
+readme = "README.md"
+publish = false
+
+# Hashlaag: één primitief (BLAKE3, officiële implementatie door de
+# BLAKE3-auteurs; een onafhankelijke audit is niet vastgesteld). sha2 komt ook
+# in productie, maar alleen binnen Ed25519 (SHA-512 is daar onderdeel van het
+# schema); de eigen hashes van de crate blijven BLAKE3. De directe
+# dev-dependency op sha2 is voor de KAT-vectoren (kat.rs, tests).
+[dependencies]
+blake3 = "1"
+# Ed25519 voor de handtekening op een besteding. Exact gepind;
+# zonder standaardfeatures: de keten verifieert alleen, met verify_strict.
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+
+[dev-dependencies]
+sha2 = "0.10"
+dilithium-rs = "0.4"
+falcon-rs = "0.3.1"
