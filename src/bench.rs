@@ -90,7 +90,7 @@ mod tests {
             );
         }
 
-        // Waardebehoud: 33 niveaus, één controle — de kern van het ontwerp.
+        // `Shape::check` over 33 niveaus; `Ledger::besteed` roept hem niet aan.
         let mut s = conservation::Shape::default();
         s.ins[20] = 1_000; s.splits[20] = 500; s.outs[20] = 500; s.outs[19] = 1_000;
         assert_eq!(s.check(), Ok(()));

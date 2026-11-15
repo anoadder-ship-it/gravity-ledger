@@ -10,8 +10,9 @@ use crate::hash::{dsh, Digest};
 /// Denominatieniveaus: 2^0 … 2^32. Vast, wereldwijd, nooit veranderbaar.
 pub const DENOM_LEVELS: usize = 33;
 
-/// Waarde van één niveau. Alleen voor tests en voor de audit-laag — de
-/// protocolregels zelf rekenen uitsluitend met aantallen (zie conservation).
+/// Waarde van één niveau, `2^level`. Alleen aangeroepen in de tests van dit
+/// bestand; er is geen audit-laag. Geeft een paniek bij niveau 33 of hoger
+/// (STATUS.md sectie 6, punt 13a).
 pub fn denom_value(level: u8) -> u64 {
     assert!((level as usize) < DENOM_LEVELS, "niveau buiten bereik");
     1u64 << level

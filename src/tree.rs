@@ -206,7 +206,7 @@ impl Accumulator {
     /// append-only is. Een blad dat in wortel R zat, zit over tien updates nog
     /// steeds in de boom: bladeren worden hier nooit verwijderd of herschreven.
     /// Wie dus een bewijs tegen een iets verouderde wortel aanlevert, bewijst
-    /// nog steeds iets warings — de vraag is alleen of die wortel nog binnen de
+    /// nog steeds iets waars — de vraag is alleen of die wortel nog binnen de
     /// window valt waarbinnen we hem kunnen verantwoorden.
     ///
     /// Een ouder wortel wordt geweigerd: niet omdat het bewijs onwaar zou zijn,
@@ -233,7 +233,7 @@ impl Accumulator {
         let mut k = 0;
         while k < self.levels.len() - 1 {
             let n = self.levels[k].len();
-            // Los kind aan de rechterkant van een oneven niveau: sibling is menzelf.
+            // Los kind aan de rechterkant van een oneven niveau: de sibling is de knoop zelf.
             let sib = if idx % 2 == 0 {
                 if idx + 1 < n { idx + 1 } else { idx }
             } else {

@@ -3,7 +3,7 @@
 **Doel:** eerste bestand bij hervatten. Legt vast waar we staan, wat bewezen is,
 en welke keuzes waarom zijn gemaakt — zodat niets herhaald hoeft te worden.
 
-Laatst bijgewerkt: 2026-11-13. **106 tests groen (56 in de bibliotheek, 29 in
+Laatst bijgewerkt: 2026-11-15. **106 tests groen (56 in de bibliotheek, 29 in
 `tests/besteding.rs`, 9 in `tests/veiligheid.rs`, 8 in `tests/handtekening.rs`,
 4 doctests), plus 4 metingen onder `#[ignore]`; alle
 prestatiegetallen gemeten, niet geschat.** Externe review van 2026-11-10
@@ -89,8 +89,9 @@ die mutaties niet gedraaid.
 | 7 (bericht) | `niveau` uit M | `bericht_volgens_specificatie`, `niveau_gewijzigd_na_tekenen` | stap 7 |
 | 8 (emmer) | de regel met `live(…) == 0` weg | `controle_8_lege_emmer_bij_inconsistente_tellers`, op de eis `Err(LegeEmmer)` | stap 7c |
 
-Controles 1, 2, 3 en 5 en de handtekeningverificatie zelf zijn in deze review
-niet gemuteerd.
+Controles 1, 2, 3 en 5 en de handtekeningverificatie zelf zijn in de review
+van 2026-11-12 niet gemuteerd, en in de ronde van 2026-11-15 hieronder ook
+niet (open punt 17).
 
 - **R1 en R2 zijn gesloten in stap 7.** Stap 2 sloot alleen het geval van een
   lege emmer. Sinds stap 7 rekent de keten zelf C_in en het blad uit en
@@ -102,6 +103,24 @@ niet gemuteerd.
 - De controle dat een blad gelijk is aan H(index, niveau, commitment) zit in
   controle 5 van `Ledger::besteed`: de keten rekent `blad(niveau, C_in)` zelf
   uit; een kale commitment in de boom is geen lid.
+
+**Ronde van 15 november 2026.** Geen wijziging aan productiecode of aan de
+openbare API.
+
+- Commentaar en rustdoc nagelopen op beweringen die de code niet waarmaakt,
+  en hersteld (`bench.rs`, `conservation.rs`, `lib.rs`, `note.rs`,
+  `spend.rs`, `tree.rs`).
+- `g4_besteden_uit_lege_emmer_faalt` eist nu precies `GeenLid` en een
+  ongewijzigde ledger, in plaats van alleen `is_err()`. Proef met controle 4
+  die altijd weigert: de oude g4 bleef groen, de nieuwe wordt rood.
+- Mutatie van controle 8 (de regel met `live(…) == 0` weg), vóór en na de
+  aanscherping van g4, met `--no-fail-fast`: alleen
+  `controle_8_lege_emmer_bij_inconsistente_tellers` wordt rood; g4 blijft
+  groen. g4 bewaakt R3 dus niet (open punt 16).
+- Besluit over `Shape::check`: hij blijft openbaar en ongewijzigd;
+  `Ledger::besteed` roept hem niet aan, omdat hij voor de vorm van een
+  besteding (één invoer en één uitgang op hetzelfde niveau) niets kan
+  weigeren. Dat staat nu in de rustdoc van `src/conservation.rs`.
 
 ---
 
@@ -119,8 +138,8 @@ niet gemuteerd.
   elk van de 4 niveaus van het bewijs, de 8 bits van de eerste byte van de
   sibling; 384 gevallen), verkeerde index, verkeerde bladeren, verkeerde
   wortel, index buiten bereik.
-- Waardebehoud als telling over 33 denominatieniveaus (tijd in
-  `docs/metingen.md`).
+- Waardebehoud als telling over 33 denominatieniveaus (`Shape::check`; tijd
+  in `docs/metingen.md`). `Ledger::besteed` roept `Shape::check` niet aan.
 - Dubbeluitgave wordt ontdekt via nullifier N = H("GL/nullify/v1", chain,
   index_in, C_in), door de keten uitgerekend (stap 7): `besteding::nullifier`.
   `Note::nullifier` (v0) in `src/note.rs` is onderzoek (het anonieme model uit
@@ -494,6 +513,24 @@ beveiligd.
        functie is bedoeld voor alleen tests en audit.
     c. `Ledger::mint` controleert niveau en epoch niet: een munt met niveau 33
        of hoger telt wel in een emmer, maar is niet te besteden.
+14. **`Violation::Overflow` is onbereikbaar.** Elke telling in `Shape` is een
+    u32; het aanbod is hooguit 4 · (2^32 − 1) = 17.179.869.180 en de vraag
+    hooguit 5 · (2^32 − 1) = 21.474.836.475, ver onder 2^64 − 1. De
+    controles blijven als vangnet staan.
+15. **Ongebruikte openbare functies in `conservation`.** `Shape::aggregate`
+    wordt nergens aangeroepen, ook niet in tests. `conservation::zero` wordt
+    alleen binnen `src/conservation.rs` aangeroepen (`Shape::default` en de
+    tests daar), daarbuiten nergens. Beide blijven staan.
+16. **`LegeEmmer` is van buiten de crate niet bereikbaar.** Redenering: een
+    munt die controles 1 tot en met 7 haalt, is via `mint` of `besteed`
+    opgenomen en in haar emmer geteld, en per positie slaagt hooguit één
+    besteding; zolang ze onbesteed is, is `live` dus minstens 1. Dit steunt
+    op botsingsvrijheid van de hash en is niet uitputtend getest. Controle 8
+    wordt alleen bewaakt door de unit-test
+    `controle_8_lege_emmer_bij_inconsistente_tellers`.
+17. **Controles 1, 2, 3 en 5 zijn niet gemuteerd**, net als de
+    handtekeningverificatie zelf (controle 7; alleen het bericht M is
+    gemuteerd, zie sectie 0a).
 
 Punt 6 (wie mag munten) blijft open.
 

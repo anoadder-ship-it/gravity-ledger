@@ -1,24 +1,37 @@
 //! Waardebehoud door **telling**, niet door sommatie.
 //!
-//! Dit bestand is de kern van het hele argument. RingCT afdwingen van
-//! `Σ in = Σ out` vraagt een additief homomorfe commitment (Pedersen), en die
-//! breekt als eerste onder een quantumcomputer — zowel hiding als binding, dus
-//! niet alleen meelezen maar *values printen*.
-//!
-//! Met vaste denominaties hoeft er niets opgeteld te worden. Per niveau moet de
-//! **stroom noten** gewoon kloppen, en splitsen/voegen zijn lokale, structurele
-//! feiten in plaats van veldrekenen. Range-proof: nul bytes.
+//! `Shape` beschrijft een overdracht als aantallen noten per niveau;
+//! `Shape::check` controleert of die aantallen per niveau kloppen. RingCT
+//! dwingt `Σ in = Σ out` af met een additief homomorfe commitment (Pedersen).
+//! Met vaste denominaties hoeft er niets opgeteld te worden: per niveau moet
+//! de **stroom noten** kloppen, en splitsen en voegen zijn tellingen per
+//! niveau in plaats van veldrekenen. Range-proof: nul bytes.
 //!
 //! Balans per niveau `d`:
 //! ```text
 //!   ins[d] + 2·splits[d+1] + merges[d]  =  outs[d] + fee[d] + splits[d] + 2·merges[d+1]
 //!   └────────── aanbod ──────────┘         └──────────── vraag ────────────┘
 //! ```
+//!
+//! **`Ledger::besteed` roept `Shape::check` niet aan.** Een besteding heeft
+//! precies één invoer en één uitgang, en `besteed` gebruikt het niveau uit het
+//! record voor allebei de bladen: `blad(niveau, C_in)` bij het lidmaatschap
+//! (controle 5) en `blad(niveau, C_uit)` bij het opnemen van de uitgang
+//! (stap 9). De vorm van een besteding is dus altijd `ins[n] = outs[n] = 1`
+//! en verder nul, en voor die vorm kan `check` niets weigeren. `check` wordt
+//! pas nodig bij bestedingen met meer invoeren of uitgangen, of met splitsen,
+//! voegen of fooi; die bestaan nu niet.
+//!
+//! Buiten dit bestand gebruiken alleen `r4_behoud_omgekeerd`
+//! (`tests/veiligheid.rs`) en de meting `meet_ladder_en_bewijzen`
+//! (`src/bench.rs`) `Shape`.
 
 use crate::note::DENOM_LEVELS;
 
 pub type Counts = [u32; DENOM_LEVELS];
 
+/// Een telling met nul op elk niveau. Alleen binnen dit bestand aangeroepen
+/// (door `Shape::default` en in de tests hieronder); daarbuiten nergens.
 pub fn zero() -> Counts {
     [0u32; DENOM_LEVELS]
 }
@@ -55,6 +68,11 @@ pub enum Violation {
     MergeAtFloor,
     /// Stroom klopt niet op één niveau: hier zou waarde ontstaan of verdwijnen.
     Imbalance { level: u8, aanbod: u64, vraag: u64 },
+    /// Een som past niet in u64. Met de huidige grenzen kan dat niet: elke
+    /// telling is een u32, dus ten hoogste 2^32 − 1. Het aanbod is hooguit
+    /// 4 · (2^32 − 1) = 17.179.869.180 en de vraag hooguit 5 · (2^32 − 1) =
+    /// 21.474.836.475, ver onder 2^64 − 1. De controles blijven als vangnet
+    /// voor het geval de grenzen veranderen.
     Overflow,
 }
 
@@ -68,7 +86,18 @@ fn g(a: &Counts, d: usize) -> u64 {
 }
 
 impl Shape {
-    /// Protocolregel: klopt de notenstroom per niveau?
+    /// Klopt de notenstroom per niveau? Weigert, in deze volgorde:
+    /// - `splits[0] != 0`: `IndivisibleSplit`;
+    /// - `merges[0] != 0`: `MergeAtFloor`;
+    /// - daarna per niveau d van 0 tot en met 32: `Overflow` als aanbod of
+    ///   vraag niet in u64 past (kan niet, zie `Violation::Overflow`), en
+    ///   `Imbalance` als `ins[d] + 2·splits[d+1] + merges[d]` verschilt van
+    ///   `outs[d] + fee[d] + splits[d] + 2·merges[d+1]`. Boven niveau 32 telt
+    ///   als nul. De eerste weigering wordt teruggegeven.
+    ///
+    /// `Ledger::besteed` roept dit niet aan: voor de enige vorm die een
+    /// besteding heeft (één invoer en één uitgang op hetzelfde niveau) kan
+    /// `check` niets weigeren. Zie de moduledocumentatie.
     pub fn check(&self) -> Result<(), Violation> {
         if self.splits[0] != 0 {
             return Err(Violation::IndivisibleSplit);
@@ -100,8 +129,11 @@ impl Shape {
         Ok(())
     }
 
-    /// **Alleen voor tests en voor de audit-laag.** De naïeve sommatie die we
-    /// protocol-ontzeggen, als waarheidsorakel.
+    /// De sommatie `Σ aantal · 2^niveau`, als waarheidsorakel in tests
+    /// (`telling_is_equivalent_aan_sommatie`, `een_split_is_waarde_neutraal`,
+    /// `r4_behoud_omgekeerd`); elders wordt hij niet aangeroepen. Er is geen
+    /// audit-laag. De som kan in een debug-build overlopen (STATUS.md
+    /// sectie 6, punt 13b).
     pub fn total_value(counts: &Counts) -> u64 {
         counts
             .iter()
@@ -110,9 +142,8 @@ impl Shape {
             .sum()
     }
 
-    /// Aggregate public record voor één epoch (laag T): aantallen per niveau.
-    /// Dit is wat een auditor ziet — genoeg voor de geldvoorraad, niet genoeg
-    /// om ook maar één betaling te herleiden.
+    /// Geeft `(ins, outs, fee)` terug. Wordt nu nergens aangeroepen, ook niet
+    /// in tests; er is geen epochrecord en geen auditor in de code.
     pub fn aggregate(&self) -> (Counts, Counts, Counts) {
         (self.ins, self.outs, self.fee)
     }
