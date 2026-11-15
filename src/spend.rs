@@ -24,8 +24,8 @@ pub type Spents = BTreeMap<(u64, u8), usize>;
 
 /// Neemt een noot op én telt hem in zijn emmer: roept alleen `Ledger::mint`
 /// aan, dat het werk doet (één implementatie). Blijft bestaan voor bestaande
-/// aanroepers. De emitter is de enige die de menigte kan vullen; besteders
-/// halen er alleen uit.
+/// aanroepers. Ook `Ledger::besteed` vult de emmers: de uitgang telt in
+/// emmer (epoch van de ledger, niveau).
 pub fn mint_to_ledger(l: &mut Ledger, note: &Note) -> usize {
     l.mint(note)
 }

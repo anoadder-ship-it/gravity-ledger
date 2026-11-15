@@ -4,9 +4,11 @@
 //! Draait alleen expliciet: `cargo test --release -- --ignored --nocapture`.
 //! Uitkomsten van drie runs: `docs/metingen.md`.
 //!
-//! Het doel: hoe groot en hoe traag zijn een lidmaatschapsbewijs, een
-//! zichtbare besteding en een post-kwantumhandtekening bij 1.000 tot 100.000
-//! bladen?
+//! Het doel: hoe groot en hoe traag zijn een lidmaatschapsbewijs en een
+//! zichtbare besteding bij 1.000, 10.000 en 100.000 bladen, en hoe groot en
+//! hoe traag is een post-kwantumhandtekening? Die laatste meting
+//! (`meet_pq_vloer`, `meet_falcon_vloer`) tekent en verifieert een vaste
+//! boodschap zonder boom en hangt dus niet af van het aantal bladen.
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +24,7 @@ mod tests {
     fn meet_ladder_en_bewijzen() {
         println!("verwijzing: digest = {} byte (BLAKE3-XOF, één primitief)", hash::DIGEST_BYTES);
 
-        // Begrensd: 1M kost ~10 s per root op één kern en past dan niet in één run.
+        // Begrensd tot 100.000 bladen; grotere bomen worden niet gemeten.
         for &n in &[1_000usize, 10_000, 100_000] {
             // Bouw de boom from scratch en meet de twee getallen die er toe
             // doen: wat kost één mint (amortiseerd), en wat kost het opvragen
@@ -37,7 +39,8 @@ mod tests {
             let root_ns = t2.elapsed().as_secs_f64() * 1e9 / 1000.0;
             let root = a.root();
 
-            // Bewijzen: verificatie is O(log n), opbouw is dat níet.
+            // Bewijzen: verifiëren en opbouwen (`Accumulator::proof`, siblings
+            // uit de cache) zijn allebei O(log n); hieronder apart gemeten.
             const K: usize = 256;
             let pre: Vec<(usize, tree::Proof)> = (0..K)
                 .map(|s| { let idx = (s * 977) % n; (idx, a.proof(idx).expect("bewijs moet bestaan")) })
@@ -98,8 +101,9 @@ mod tests {
     }
 
     /// De PQ-vloer: wat kost één post-kwantum handtekening, in bytes en tijd?
-    /// Dit is de ondergrens van elke transactie — groter dan het hele
-    /// lidmaatschapsbewijs hierboven. Meten met dilithium-rs (ML-DSA, FIPS 204).
+    /// Dat zou de ondergrens zijn van een besteding met zo'n handtekening; de
+    /// huidige besteding gebruikt Ed25519 (64 byte). Meten met dilithium-rs
+    /// (ML-DSA, FIPS 204).
     #[test]
     #[ignore = "meting — draait alleen met --ignored"]
     fn meet_pq_vloer() {

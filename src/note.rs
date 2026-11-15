@@ -49,8 +49,9 @@ impl Note {
     /// `C = H("GL/commit/v1", chain_id, level, epoch, owner, secret)`
     ///
     /// Botsingsvast (binding) en verborgen (hiding). Dit is wat op de keten gaat.
-    /// v1 voegt de eigenaar toe (stap 4): alleen wie de sleutel achter `owner`
-    /// heeft, kan straks een geldige besteding tekenen.
+    /// v1 voegt de eigenaar toe (stap 4): `Ledger::besteed` rekent `owner`
+    /// uit de publieke sleutel in het record (controle 3) en controleert de
+    /// handtekening onder die sleutel (controle 7).
     pub fn commitment(&self, chain: &ChainId) -> Digest {
         dsh(
             b"GL/commit/v1",

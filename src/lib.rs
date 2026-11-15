@@ -21,12 +21,11 @@ pub use hash::Digest;
 pub use note::{ChainId, Note, Secret};
 pub use tree::Accumulator;
 
-/// Een mini-ledger: lidmaatschap in de accumulator + nullifier-verzameling. Alleen de
-/// structuur uit dit bestand maakt nog geen veilig protocol — het legt wel de
-/// invarianten vast waar het bewijs straks over moet gaan.
+/// Een mini-ledger: de accumulator, de verbrande nullifiers en de tellers per
+/// emmer. Deze structuur alleen maakt nog geen veilig protocol.
 ///
-/// Een blad komt alleen via `mint` in de boom, dus altijd als
-/// `blad(niveau, commitment)`. Van buiten de crate is de toestand alleen te
+/// Een blad komt alleen via `mint` of `besteed` (de uitgang) in de boom, dus
+/// altijd als `blad(niveau, commitment)`. Van buiten de crate is de toestand alleen te
 /// lezen (stap 6). Toegestaan:
 ///
 /// ```
@@ -67,8 +66,9 @@ pub struct Ledger {
     pub(crate) epoch: u64,
     pub(crate) acc: Accumulator,
     pub(crate) nullified: std::collections::BTreeSet<Digest>,
-    /// Hoe vol elke emmer (epoch, niveau) is. Bepalend voor de anonimiteit van
-    /// een besteding daarin; zie `spend.rs`.
+    /// Hoe vol elke emmer (epoch, niveau) is. `besteed` gebruikt dit in
+    /// controle 8. De besteding is zichtbaar; alleen in het menigtemodel
+    /// (onderzoek, STATUS.md 3d) zou dit de anonimiteit bepalen.
     pub(crate) buckets: spend::Buckets,
     /// Emmer per accumulatorpositie, in volgorde van opname.
     pub(crate) minted: Vec<(u64, u8)>,
@@ -114,8 +114,8 @@ impl Ledger {
     /// De keten waaraan deze ledger gebonden is.
     pub fn chain(&self) -> &ChainId { &self.chain }
 
-    /// De accumulator, alleen lezen. Toevoegen gaat uitsluitend via `mint`,
-    /// dus altijd als `blad(niveau, commitment)`.
+    /// De accumulator, alleen lezen. Toevoegen gaat uitsluitend via `mint` en
+    /// `besteed`, dus altijd als `blad(niveau, commitment)`.
     pub fn acc(&self) -> &Accumulator { &self.acc }
 
     /// Opnames per emmer, alleen lezen.

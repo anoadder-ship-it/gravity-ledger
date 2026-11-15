@@ -21,12 +21,22 @@ fn noot(level: u8, epoch: u64, k: u8) -> Note {
     Note { level, epoch, owner: [0u8; 64], secret: Secret(s) }
 }
 
-/// G4 / R3: correct getekende records voor munten in emmer (9,5) die nooit
-/// zijn opgenomen, worden geweigerd. Sinds stap 7 gebeurt dat al bij
-/// lidmaatschap (`GeenLid`, controle 5); de test eist alleen een weigering en
-/// dat geen emmer negatief wordt. De emmercontrole zelf (controle 8) wordt
-/// bewaakt door `controle_8_lege_emmer_bij_inconsistente_tellers` in
-/// `src/besteding.rs`.
+/// G4 / R3: drie correct getekende records voor munten in emmer (9,5) die
+/// nooit zijn opgenomen, op een lege ledger, worden geweigerd.
+///
+/// Wat de test aantoont: `besteed` geeft voor elk van de drie records een
+/// fout, en daarna is voor geen emmer `spent` groter dan `buckets`.
+///
+/// Wat hij niet aantoont:
+/// - welke controle weigert. Hij eist alleen `is_err()`. Sinds stap 7 weigert
+///   controle 5 (`GeenLid`): de munten zijn geen lid. Controle 8, de
+///   emmercontrole, wordt niet bereikt.
+/// - dat de emmercontrole een emmer tegen negatief beschermt. Omdat elke
+///   besteding geweigerd wordt, blijft `spent` leeg en loopt de lus onderaan
+///   nul keer; "geen emmer negatief" is hier dus altijd waar.
+///
+/// Controle 8 wordt alleen bewaakt door
+/// `controle_8_lege_emmer_bij_inconsistente_tellers` in `src/besteding.rs`.
 #[test]
 fn g4_besteden_uit_lege_emmer_faalt() {
     use ed25519_dalek::{Signer, SigningKey};

@@ -98,18 +98,20 @@ impl Proof {
 
 /// Eén update van de rechterpad, genummerd door de wortel die hij opleverde.
 ///
-/// Dit is het stuk dat concurrentie mogelijk maakt. Een bewijzer die wortel R
-/// zag, kan zijn bewijs nog steeds bruikbaar maken nadat anderen hebben
-/// toegevoegd: de entries ná R vertellen precies welke siblings verschooten.
+/// Dit is het stuk dat concurrentie mogelijk maakt. Een bewijs tegen wortel R
+/// blijft aanvaard nadat anderen hebben toegevoegd, zolang R in de log staat
+/// (`accepts_root`). Het bewijs wordt niet bijgewerkt; de log dient alleen om
+/// R te herkennen.
 #[derive(Clone, Debug)]
 pub struct Change {
-    /// Wortel direct na deze update — het anker waar een bewijzer op tekende.
+    /// Wortel direct na deze update; een bewijs kan tegen deze wortel gebouwd
+    /// zijn. De wortel wordt niet getekend.
     pub root: Digest,
     /// Positie van het toegevoegde blad.
     pub index: usize,
 }
 
-/// Standaard aantal wortels waarvoor een bewijs nog bij te werken valt.
+/// Standaard aantal oude wortels waartegen een bewijs nog aanvaard wordt.
 pub const DEFAULT_CHANGELOG: usize = 64;
 
 #[derive(Clone, Debug, Default)]
@@ -132,7 +134,7 @@ impl Accumulator {
         Self { leaves: Vec::new(), levels: Vec::new(), changelog: VecDeque::new(), max_log: DEFAULT_CHANGELOG }
     }
 
-    /// Hoeveel wortels terug een bewijs nog bij te werken valt.
+    /// Hoeveel wortels terug een bewijs nog aanvaard wordt.
     pub fn set_changelog_size(&mut self, n: usize) {
         self.max_log = n.max(1);
         while self.changelog.len() > self.max_log { self.changelog.pop_front(); }
