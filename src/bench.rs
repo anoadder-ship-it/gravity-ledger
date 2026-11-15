@@ -34,10 +34,22 @@ mod tests {
             for i in 0..n { a.push(leaf_of(i)); }
             let mint_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
 
-            let t2 = Instant::now();
-            for _ in 0..1000 { std::hint::black_box(a.root()); }
-            let root_ns = t2.elapsed().as_secs_f64() * 1e9 / 1000.0;
+            // Elke getimede lus hieronder telt hoe vaak de uitkomst klopt, en
+            // na de lus wordt die telling geëist. Een meting van een pad dat
+            // anders afloopt dan bedoeld (bijvoorbeeld een controle die altijd
+            // faalt) maakt de meting zo rood in plaats van een getal op te
+            // leveren.
+            //
+            // Uitzondering: `root()` is geen controle maar een opvraging van
+            // enkele nanoseconden; een vergelijking van 64 byte per keer zou
+            // een groot deel van de gemeten tijd worden. Daar wordt alleen de
+            // laatste waarde na de lus geëist.
             let root = a.root();
+            let t2 = Instant::now();
+            let mut laatste = [0u8; hash::DIGEST_BYTES];
+            for _ in 0..1000 { laatste = std::hint::black_box(a.root()); }
+            let root_ns = t2.elapsed().as_secs_f64() * 1e9 / 1000.0;
+            assert_eq!(laatste, root, "n={n}: root() gaf een andere wortel");
 
             // Bewijzen: verifiëren en opbouwen (`Accumulator::proof`, siblings
             // uit de cache) zijn allebei O(log n); hieronder apart gemeten.
@@ -49,44 +61,95 @@ mod tests {
             let bytes = pre[0].1.size_bytes();
 
             let t1 = Instant::now();
+            let mut ok = 0usize;
             for _ in 0..40 {
-                for (idx, p) in &pre { std::hint::black_box(p.verify(*idx, &a.leaves[*idx], &root)); }
+                for (idx, p) in &pre { if std::hint::black_box(p.verify(*idx, &a.leaves[*idx], &root)) { ok += 1; } }
             }
             let verif_us = t1.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
+            assert_eq!(ok, 40 * K, "n={n}: niet elk bewijs tegen de huidige wortel slaagde");
 
             let t2 = Instant::now();
-            for s in 0..K { std::hint::black_box(a.proof((s * 977) % n)); }
+            let mut gebouwd = 0usize;
+            for s in 0..K { if std::hint::black_box(a.proof((s * 977) % n)).is_some() { gebouwd += 1; } }
             let bouw_us = t2.elapsed().as_secs_f64() * 1e6 / K as f64;
+            assert_eq!(gebouwd, K, "n={n}: proof() gaf niet voor elke index een bewijs");
 
-            let ok = pre.iter().filter(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root)).count();
-
-            // Wat kost de concurrency-laag? Let op: de huidige wortel keert
-            // meteen terug via de eerste toets, dus die meten is bedrog. Deze
-            // twee metingen doen het echte werk: een verouderde maar geldige
-            // wortel (scan door de log tot treffer) en een wortel buiten het
-            // venster (volledige scan, dan afwijzing — de ergste casus).
+            // Het acceptatievenster. Na elke `push` komt de nieuwe wortel in
+            // de changelog (`tree::DEFAULT_CHANGELOG` = 64 plaatsen), dus de
+            // huidige wortel telt mee: een wortel waarna nog D bladen zijn
+            // toegevoegd, valt binnen het venster zolang D ≤ 63.
+            //
+            // Een tweede boom `b` met dezelfde bladen legt op twee momenten
+            // bewijs én wortel tegelijk vast:
+            //   * BUITEN = 64 bladen vóór het eind: net buiten het venster;
+            //   * BINNEN = 3 bladen vóór het eind: binnen het venster.
+            // De vorige versie van deze meting maakte de bewijzen tegen de
+            // huidige wortel en controleerde ze tegen een oudere; dan faalt
+            // al de vouwing (0 van de 256 slaagden) en wordt `accepts_root`
+            // nooit bereikt. Die meting mat dus hoe lang het mislukken duurt.
+            const BINNEN: usize = 3;
+            const BUITEN: usize = tree::DEFAULT_CHANGELOG;
+            let idx_oud = |s: usize| (s * 977) % (n - BUITEN);
             let mut b = tree::Accumulator::new();
-            for i in 0..(n - 3) { b.push(leaf_of(i)); }
+            for i in 0..(n - BUITEN) { b.push(leaf_of(i)); }
+            let root_buiten = b.root();
+            let pre_buiten: Vec<(usize, tree::Proof)> = (0..K).map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap())).collect();
+            for i in (n - BUITEN)..(n - BINNEN) { b.push(leaf_of(i)); }
             let root_oud = b.root();
-            for i in (n - 3)..n { b.push(leaf_of(i)); }
+            let pre_oud: Vec<(usize, tree::Proof)> = (0..K).map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap())).collect();
+            for i in (n - BINNEN)..n { b.push(leaf_of(i)); }
             assert_eq!(b.root(), root, "vergelijkingboom moet identiek zijn");
             let onbekend = leaf_of(usize::MAX);
 
+            // Voorwaarden: de bewijzen zijn waar tegen hun eigen wortel en
+            // vouwen niet naar de huidige. Een weigering hieronder komt dus
+            // van het venster, niet van een kapot bewijs.
+            for (idx, p) in pre_oud.iter().chain(&pre_buiten) {
+                assert!(!p.verify(*idx, &a.leaves[*idx], &root), "n={n}: oud bewijs vouwt naar de huidige wortel");
+            }
+            assert!(pre_oud.iter().all(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root_oud)));
+            assert!(pre_buiten.iter().all(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root_buiten)));
+
+            // `accepts_root` vergelijkt eerst met de huidige wortel en loopt
+            // dan de changelog af, oudste vooraan. `root_oud` is de 61e van
+            // de 64; `onbekend` en `root_buiten` staan er niet in (volledige
+            // scan, dan afwijzing).
             let t3 = Instant::now();
-            for _ in 0..K { std::hint::black_box(a.accepts_root(&root_oud)); }
+            let mut aanvaard = 0usize;
+            for _ in 0..K { if std::hint::black_box(a.accepts_root(&root_oud)) { aanvaard += 1; } }
             let venster_us = t3.elapsed().as_secs_f64() * 1e6 / K as f64;
+            assert_eq!(aanvaard, K, "n={n}: wortel binnen het venster geweigerd");
 
             let t5 = Instant::now();
-            for _ in 0..K { std::hint::black_box(a.accepts_root(&onbekend)); }
+            let mut aanvaard = 0usize;
+            for _ in 0..K { if std::hint::black_box(a.accepts_root(&onbekend)) { aanvaard += 1; } }
             let afwijzing_us = t5.elapsed().as_secs_f64() * 1e6 / K as f64;
+            assert_eq!(aanvaard, 0, "n={n}: onbekende wortel aanvaard");
 
+            // Volledige verificatie zoals de ledger hem doet: vouwen naar de
+            // aangereikte wortel én die wortel in het venster.
             let t4 = Instant::now();
-            for (idx, p) in &pre { std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_oud)); }
-            let met_venster_us = t4.elapsed().as_secs_f64() * 1e6 / K as f64;
+            let mut aanvaard_binnen = 0usize;
+            for _ in 0..40 {
+                for (idx, p) in &pre_oud { if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_oud)) { aanvaard_binnen += 1; } }
+            }
+            let met_venster_us = t4.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
+            assert_eq!(aanvaard_binnen, 40 * K, "n={n}: waar bewijs binnen het venster geweigerd");
+
+            // Bewust geweigerd: een waar bewijs tegen een echte wortel die
+            // net uit het venster is gevallen.
+            let t6 = Instant::now();
+            let mut aanvaard_buiten = 0usize;
+            for _ in 0..40 {
+                for (idx, p) in &pre_buiten { if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_buiten)) { aanvaard_buiten += 1; } }
+            }
+            let buiten_us = t6.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
+            assert_eq!(aanvaard_buiten, 0, "n={n}: waar bewijs buiten het venster aanvaard");
 
             println!(
-                "n={:>7} | MINT {:>6.2} µs | WORTEL {:>6.0} ns (O(1)) | bewijs {} byte (diepte {}) | VERIFIEREN {:>5.2} µs | +VENSTER {:>5.2} µs | venster scan {:>6.3} µs | afwijzing {:>6.3} µs | BEWIJS MAKEN {:>7.2} µs | correct {}/{}",
-                n, mint_us, root_ns, bytes, diepte, verif_us, met_venster_us, venster_us, afwijzing_us, bouw_us, ok, K
+                "n={:>7} | MINT {:>6.2} µs | WORTEL {:>6.0} ns (O(1)) | bewijs {} byte (diepte {}) | VERIFIEREN {:>5.2} µs | VENSTER (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | BUITEN (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | venster scan {:>6.3} µs | afwijzing {:>6.3} µs | BEWIJS MAKEN {:>7.2} µs | correct {}/{}",
+                n, mint_us, root_ns, bytes, diepte, verif_us, BINNEN, met_venster_us, aanvaard_binnen, 40 * K,
+                BUITEN, buiten_us, aanvaard_buiten, 40 * K, venster_us, afwijzing_us, bouw_us, ok, 40 * K
             );
         }
 
@@ -132,8 +195,10 @@ mod tests {
             let sign_us = t.elapsed().as_secs_f64() * 1e6 / N as f64;
 
             let t2 = Instant::now();
-            for _ in 0..N { std::hint::black_box(DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode)); }
+            let mut geldig = 0usize;
+            for _ in 0..N { if std::hint::black_box(DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode)) { geldig += 1; } }
             let verif_us = t2.elapsed().as_secs_f64() * 1e6 / N as f64;
+            assert_eq!(geldig, N, "{naam}: geldige signatuur in de meting geweigerd");
 
             println!(
                 "{:<9} | publieke sleutel {:>5} byte | signatuur {:>5} byte | signer {:>7.0} µs | verifiëren {:>6.0} µs",
@@ -175,10 +240,12 @@ mod tests {
             let sign_us = t.elapsed().as_secs_f64() * 1e6 / N as f64;
 
             let t2 = Instant::now();
+            let mut geldig = 0usize;
             for _ in 0..N {
-                std::hint::black_box(FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None).is_ok());
+                if std::hint::black_box(FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None).is_ok()) { geldig += 1; }
             }
             let verif_us = t2.elapsed().as_secs_f64() * 1e6 / N as f64;
+            assert_eq!(geldig, N, "logn={logn}: geldige signatuur in de meting geweigerd");
 
             println!(
                 "{:<12} | publieke sleutel {:>5} byte | signatuur {:>4} byte | signer {:>7.0} µs | verifiëren {:>6.0} µs",
