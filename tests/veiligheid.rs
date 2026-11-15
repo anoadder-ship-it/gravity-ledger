@@ -21,28 +21,35 @@ fn noot(level: u8, epoch: u64, k: u8) -> Note {
     Note { level, epoch, owner: [0u8; 64], secret: Secret(s) }
 }
 
-/// G4 / R3: drie correct getekende records voor munten in emmer (9,5) die
-/// nooit zijn opgenomen, op een lege ledger, worden geweigerd.
+/// G4 / R3: drie correct getekende records voor munten in de lege emmer
+/// (9,5), die nooit zijn opgenomen, op een lege ledger. Elk record wordt
+/// geweigerd met precies `GeenLid` (controle 5), en de ledger blijft daarbij
+/// gelijk (volledige Debug-weergave).
 ///
-/// Wat de test aantoont: `besteed` geeft voor elk van de drie records een
-/// fout, en daarna is voor geen emmer `spent` groter dan `buckets`.
+/// Waarom `GeenLid` en niet `LegeEmmer`: van buiten de crate kan controle 8
+/// niet weigeren. Een munt die controles 1 tot en met 7 haalt, is een blad op
+/// `index_in` dat via `mint` of `besteed` is opgenomen en daarbij in zijn
+/// emmer is geteld. Per positie kan hooguit één besteding slagen (de
+/// nullifier bevat de positie en het blad bindt de commitment, aangenomen
+/// dat de hash botsingsvrij is). Zolang die munt onbesteed is, telt haar
+/// emmer dus minder bestedingen dan opnames en is `live` minstens 1. Een
+/// besteding uit een lege emmer faalt van buiten daarom altijd vóór
+/// controle 8; hier op lidmaatschap.
 ///
-/// Wat hij niet aantoont:
-/// - welke controle weigert. Hij eist alleen `is_err()`. Sinds stap 7 weigert
-///   controle 5 (`GeenLid`): de munten zijn geen lid. Controle 8, de
-///   emmercontrole, wordt niet bereikt.
-/// - dat de emmercontrole een emmer tegen negatief beschermt. Omdat elke
-///   besteding geweigerd wordt, blijft `spent` leeg en loopt de lus onderaan
-///   nul keer; "geen emmer negatief" is hier dus altijd waar.
-///
+/// Deze test bewaakt R3 (de emmercontrole) dus niet. Mutatieproef van
+/// 15 november 2026: met de regel van controle 8 weggehaald blijft hij groen.
 /// Controle 8 wordt alleen bewaakt door
-/// `controle_8_lege_emmer_bij_inconsistente_tellers` in `src/besteding.rs`.
+/// `controle_8_lege_emmer_bij_inconsistente_tellers` in `src/besteding.rs`,
+/// die de inconsistente tellers via de `pub(crate)`-velden opbouwt. Wat deze
+/// test wel bewaakt: dat zo'n record bij lidmaatschap stopt, met precies die
+/// fout, zonder iets aan de ledger te veranderen.
 #[test]
 fn g4_besteden_uit_lege_emmer_faalt() {
     use ed25519_dalek::{Signer, SigningKey};
-    use gravity_ledger::besteding::{bericht, nullifier, Record, VERSIE};
+    use gravity_ledger::besteding::{bericht, nullifier, BestedingFout, Record, VERSIE};
     use gravity_ledger::handtekening::{Ed25519, Handtekening};
     let mut l = Ledger::new(keten());
+    assert_eq!(l.buckets().get(&(9, 5)), None, "emmer (9,5) is niet leeg");
     let sk = SigningKey::from_bytes(&[4; 32]);
     let pk = sk.verifying_key().to_bytes();
     for k in 0..3u8 {
@@ -55,11 +62,10 @@ fn g4_besteden_uit_lege_emmer_faalt() {
         let r = Record { versie: VERSIE, schema: Ed25519::SCHEMA_ID, index_in: k as u64, niveau: 5, epoch_in: 9,
                          geheim_in: n.secret.0, pk, wortel: l.root(), bewijs: Proof { path: vec![] }, c_uit,
                          handtekening: sk.sign(&m).to_bytes() };
-        assert!(l.besteed(&r.to_bytes()).is_err(),
-                "besteding {k} uit lege emmer (9,5) werd aanvaard");
-    }
-    for (emmer, n) in l.spent() {
-        assert!(*n <= l.buckets().get(emmer).copied().unwrap_or(0), "emmer {emmer:?} negatief");
+        let voor = format!("{l:?}");
+        assert_eq!(l.besteed(&r.to_bytes()), Err(BestedingFout::GeenLid),
+                   "besteding {k} uit lege emmer (9,5)");
+        assert_eq!(format!("{l:?}"), voor, "ledger gewijzigd bij weigering {k}");
     }
 }
 
