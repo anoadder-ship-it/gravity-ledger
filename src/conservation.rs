@@ -18,7 +18,8 @@
 //! record voor allebei de bladen: `blad(niveau, C_in)` bij het lidmaatschap
 //! (controle 5) en `blad(niveau, C_uit)` bij het opnemen van de uitgang
 //! (stap 9). De vorm van een besteding is dus altijd `ins[n] = outs[n] = 1`
-//! en verder nul, en voor die vorm kan `check` niets weigeren. `check` wordt
+//! en verder nul, en voor die vorm kan `check` niets weigeren (test
+//! `een_invoer_een_uitgang`, alle 33 niveaus). `check` wordt
 //! pas nodig bij bestedingen met meer invoeren of uitgangen, of met splitsen,
 //! voegen of fooi; die bestaan nu niet.
 //!
@@ -283,5 +284,33 @@ mod tests {
     #[test]
     fn lege_transactie_is_geldig() {
         assert_eq!(Shape::default().check(), Ok(()));
+    }
+
+    /// De vorm van `Ledger::besteed`: één invoer en één uitgang, geen fooi,
+    /// splitsen of voegen. Op hetzelfde niveau wordt hij voor alle 33 niveaus
+    /// aanvaard; voor elk van de 33 · 32 = 1.056 paren verschillende niveaus
+    /// geweigerd, met de onbalans op het laagste van de twee niveaus.
+    #[test]
+    fn een_invoer_een_uitgang() {
+        let vorm = |a: usize, b: usize| {
+            let mut s = Shape::default();
+            s.ins[a] = 1;
+            s.outs[b] = 1;
+            s
+        };
+        for n in 0..DENOM_LEVELS {
+            assert_eq!(vorm(n, n).check(), Ok(()), "niveau {n} geweigerd");
+        }
+        let mut geweigerd = 0;
+        for a in 0..DENOM_LEVELS {
+            for b in (0..DENOM_LEVELS).filter(|&b| b != a) {
+                let (aanbod, vraag) = if a < b { (1, 0) } else { (0, 1) };
+                let level = a.min(b) as u8;
+                assert_eq!(vorm(a, b).check(), Err(Violation::Imbalance { level, aanbod, vraag }),
+                           "invoer {a}, uitgang {b}");
+                geweigerd += 1;
+            }
+        }
+        assert_eq!(geweigerd, 1_056);
     }
 }

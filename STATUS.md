@@ -3,7 +3,7 @@
 **Doel:** eerste bestand bij hervatten. Legt vast waar we staan, wat bewezen is,
 en welke keuzes waarom zijn gemaakt — zodat niets herhaald hoeft te worden.
 
-Laatst bijgewerkt: 2026-11-15. **106 tests groen (56 in de bibliotheek, 29 in
+Laatst bijgewerkt: 2026-11-15. **107 tests groen (57 in de bibliotheek, 29 in
 `tests/besteding.rs`, 9 in `tests/veiligheid.rs`, 8 in `tests/handtekening.rs`,
 4 doctests), plus 4 metingen onder `#[ignore]`; alle
 prestatiegetallen gemeten, niet geschat.** Externe review van 2026-11-10
@@ -121,6 +121,12 @@ openbare API.
   `Ledger::besteed` roept hem niet aan, omdat hij voor de vorm van een
   besteding (één invoer en één uitgang op hetzelfde niveau) niets kan
   weigeren. Dat staat nu in de rustdoc van `src/conservation.rs`.
+- Nieuwe test `een_invoer_een_uitgang` (`src/conservation.rs`): de vorm met
+  één invoer en één uitgang wordt op alle 33 niveaus aanvaard en voor alle
+  1.056 paren verschillende niveaus geweigerd, met de onbalans op het
+  laagste niveau. Mutatie (`check` laat elke onbalans door, `--no-fail-fast`):
+  rood worden `een_invoer_een_uitgang`,
+  `extra_noot_op_elk_niveau_wordt_ontdekt` en `r4_behoud_omgekeerd`.
 
 ---
 
@@ -539,7 +545,7 @@ Punt 6 (wie mag munten) blijft open.
 ## 7. Werken met deze repo
 
 ```bash
-cargo test                                 # 106 tests, inclusief aanvallen
+cargo test                                 # 107 tests, inclusief aanvallen
 cargo test --release -- --ignored --nocapture  # metingen, zie docs/metingen.md
 cargo test --offline                       # zonder netwerk
 ```
