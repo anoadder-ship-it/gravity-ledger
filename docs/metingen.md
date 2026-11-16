@@ -110,7 +110,7 @@ tientallen.
 De tijden van ML-DSA wisselen sterk tussen de runs. ML-DSA-87 tekende in twee
 van de drie runs sneller dan ML-DSA-65. De verificatietijden van ML-DSA-44 en
 -65 lagen in twee van de drie runs ruim twee keer hoger dan in de derde. Ook
-FN-DSA-512 was in één run bijna twee keer zo snel als in de andere twee. De oorzaak van deze spreiding is niet onderzocht. Mogelijk speelt mee op
+FN-DSA-512 wisselde: de hoogste tijd was bij tekenen 1,8 keer de laagste (491 tegen 268 µs) en bij verifiëren 1,9 keer (52 tegen 27 µs). De oorzaak van deze spreiding is niet onderzocht. Mogelijk speelt mee op
 welke kern de meting toevallig draaide (de machine heeft 10 snelle en 10
 zuinige kernen, en de threads zijn niet vastgezet; zie boven); mogelijk ook
 afwijzingsbemonstering bij het tekenen, waardoor een handtekening meer pogingen
