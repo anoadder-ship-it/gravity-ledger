@@ -299,10 +299,10 @@ wortel van 3 bladen terug werd in alle drie de runs aanvaard (10.240 van de
 bladen terug werd steeds geweigerd. Verificatie in het venster kostte per run
 0,04 tot 0,15 µs meer dan verificatie tegen de huidige wortel (1.000 bladen:
 2,09–2,12 tegen 1,99–2,01 µs; 10.000: 2,81–2,84 tegen 2,74–2,75 µs; 100.000:
-3,36–3,45 tegen 3,30–3,32 µs); `accepts_root` alleen kostte 80–91 ns. Gemeten is alleen een wortel op de 61e van
-de 64 plaatsen in de scan; andere posities niet. De vorige uitspraak hier
-("kost weinig meer") steunde op een ongeldige meting die een altijd falende
-verificatie mat; zie `docs/metingen.md`.
+3,36–3,45 tegen 3,30–3,32 µs); `accepts_root` alleen kostte 80–91 ns. Gemeten is
+alleen een wortel op de 61e van de 64 plaatsen in de scan; andere posities niet.
+De vorige uitspraak hier ("kost weinig meer") steunde op een ongeldige meting
+die een altijd falende verificatie mat; zie `docs/metingen.md`.
 
 Caveats: de tijden zijn release-builds op één machine, 30 herhalingen voor PQ.
 De tijden van ML-DSA wisselden sterk tussen de runs. De oorzaak is niet

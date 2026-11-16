@@ -71,8 +71,9 @@ mod tests {
             let t2 = Instant::now();
             // Eén aanroep kost een fractie van een microseconde; met 256
             // aanroepen duurde de lus ongeveer 8 tot 36 µs (256 × 0,03–0,14 µs,
-            // runs van 2026-11-16), te kort voor een stabiel getal. Daarom BOUW_RONDES × K aanroepen, zodat de lus ruim langer
-            // dan een seconde duurt; de duur wordt mee afgedrukt.
+            // runs van 2026-11-16), te kort voor een stabiel getal. Daarom
+            // BOUW_RONDES × K aanroepen, zodat de lus ruim langer dan een
+            // seconde duurt; de duur wordt mee afgedrukt.
             const BOUW_RONDES: usize = 300_000;
             let mut gebouwd = 0usize;
             for _ in 0..BOUW_RONDES {
