@@ -17,17 +17,32 @@ use gravity_ledger::spend::{live, mint_to_ledger};
 use gravity_ledger::tree::Proof;
 use gravity_ledger::{ChainId, Ledger, Note, Secret};
 
-fn keten() -> ChainId { ChainId([7u8; 32]) }
+fn keten() -> ChainId {
+    ChainId([7u8; 32])
+}
 
-fn sleutel(k: u8) -> SigningKey { SigningKey::from_bytes(&[k; 32]) }
+fn sleutel(k: u8) -> SigningKey {
+    SigningKey::from_bytes(&[k; 32])
+}
 
-fn pk(s: &SigningKey) -> [u8; 32] { s.verifying_key().to_bytes() }
+fn pk(s: &SigningKey) -> [u8; 32] {
+    s.verifying_key().to_bytes()
+}
 
 /// Een munt van de eigenaar van `s`.
 fn munt(s: &SigningKey, level: u8, epoch: u64, k: u8) -> Note {
     let mut g = [0u8; 32];
-    g[0] = k; g[1] = level; g[2] = epoch as u8; g[3] = s.to_bytes()[0]; g[31] = 0x5A;
-    Note { level, epoch, owner: owner_hash(Ed25519::SCHEMA, &pk(s)), secret: Secret(g) }
+    g[0] = k;
+    g[1] = level;
+    g[2] = epoch as u8;
+    g[3] = s.to_bytes()[0];
+    g[31] = 0x5A;
+    Note {
+        level,
+        epoch,
+        owner: owner_hash(Ed25519::SCHEMA, &pk(s)),
+        secret: Secret(g),
+    }
 }
 
 /// Commitment van een uitgang voor eigenaar 200.
@@ -38,9 +53,17 @@ fn uit(l: &Ledger, level: u8, k: u8) -> Digest {
 /// Record met actuele wortel en bewijs, nog niet getekend.
 fn kaal(l: &Ledger, s: &SigningKey, n: &Note, index: usize, c_uit: Digest) -> Record {
     Record {
-        versie: VERSIE, schema: Ed25519::SCHEMA_ID, index_in: index as u64, niveau: n.level,
-        epoch_in: n.epoch, geheim_in: n.secret.0, pk: pk(s), wortel: l.root(),
-        bewijs: l.acc().proof(index).unwrap_or(Proof { path: vec![] }), c_uit, handtekening: [0; 64],
+        versie: VERSIE,
+        schema: Ed25519::SCHEMA_ID,
+        index_in: index as u64,
+        niveau: n.level,
+        epoch_in: n.epoch,
+        geheim_in: n.secret.0,
+        pk: pk(s),
+        wortel: l.root(),
+        bewijs: l.acc().proof(index).unwrap_or(Proof { path: vec![] }),
+        c_uit,
+        handtekening: [0; 64],
     }
 }
 
@@ -53,8 +76,13 @@ fn teken(chain: &ChainId, s: &SigningKey, r: &mut Record) {
 }
 
 fn c_in(chain: &ChainId, r: &Record) -> Digest {
-    Note { level: r.niveau, epoch: r.epoch_in, owner: owner_hash(Ed25519::SCHEMA, &r.pk), secret: Secret(r.geheim_in) }
-        .commitment(chain)
+    Note {
+        level: r.niveau,
+        epoch: r.epoch_in,
+        owner: owner_hash(Ed25519::SCHEMA, &r.pk),
+        secret: Secret(r.geheim_in),
+    }
+    .commitment(chain)
 }
 
 fn geldig(l: &Ledger, s: &SigningKey, n: &Note, index: usize, c_uit: Digest) -> Record {
@@ -63,7 +91,9 @@ fn geldig(l: &Ledger, s: &SigningKey, n: &Note, index: usize, c_uit: Digest) -> 
     r
 }
 
-fn toestand(l: &Ledger) -> String { format!("{l:?}") }
+fn toestand(l: &Ledger) -> String {
+    format!("{l:?}")
+}
 
 /// Eist precies `fout` en een onveranderde ledger.
 fn weigert(l: &mut Ledger, r: &[u8], fout: F) {
@@ -98,7 +128,9 @@ fn r2_zelfde_geheim_ander_epoch() {
     let echt = munt(&a, 10, 0, 7);
     mint_to_ledger(&mut l, &echt);
     mint_to_ledger(&mut l, &munt(&sleutel(3), 10, 1, 50));
-    assert!(l.besteed(&geldig(&l, &a, &echt, 0, uit(&l, 10, 1)).to_bytes()).is_ok());
+    assert!(l
+        .besteed(&geldig(&l, &a, &echt, 0, uit(&l, 10, 1)).to_bytes())
+        .is_ok());
     let mut vals = echt;
     vals.epoch = 1;
     let r = geldig(&l, &a, &vals, 0, uit(&l, 10, 2));
@@ -143,9 +175,22 @@ fn vreemde_sleutel_met_geldige_handtekening() {
     mint_to_ledger(&mut l, &n);
     let mut r = kaal(&l, &aanvaller, &n, 0, uit(&l, 9, 1));
     teken(l.chain(), &aanvaller, &mut r);
-    assert!(Ed25519::verifieer(&r.pk, &bericht(l.chain(), r.versie, r.schema,
-        &nullifier(l.chain(), 0, &c_in(l.chain(), &r)), r.niveau, &r.c_uit), &r.handtekening).is_ok(),
-        "de handtekening van de aanvaller hoort op zich geldig te zijn");
+    assert!(
+        Ed25519::verifieer(
+            &r.pk,
+            &bericht(
+                l.chain(),
+                r.versie,
+                r.schema,
+                &nullifier(l.chain(), 0, &c_in(l.chain(), &r)),
+                r.niveau,
+                &r.c_uit
+            ),
+            &r.handtekening
+        )
+        .is_ok(),
+        "de handtekening van de aanvaller hoort op zich geldig te zijn"
+    );
     weigert(&mut l, &r.to_bytes(), F::GeenLid);
 }
 
@@ -158,7 +203,9 @@ fn wortel_buiten_het_venster() {
     let n = munt(&a, 2, 0, 1);
     mint_to_ledger(&mut l, &n);
     let r = geldig(&l, &a, &n, 0, uit(&l, 2, 1));
-    for k in 0..64u8 { mint_to_ledger(&mut l, &munt(&sleutel(8), 2, 0, k)); }
+    for k in 0..64u8 {
+        mint_to_ledger(&mut l, &munt(&sleutel(8), 2, 0, k));
+    }
     weigert(&mut l, &r.to_bytes(), F::WortelOnbekend);
     // Met een actuele wortel en bewijs (ongetekend) gaat dezelfde handtekening wel.
     let mut vers = r.clone();
@@ -256,7 +303,16 @@ fn niveau_gewijzigd_na_tekenen() {
     mint_to_ledger(&mut l, &n);
     let mut r = kaal(&l, &a, &n, 0, uit(&l, 4, 1));
     let nf = nullifier(l.chain(), 0, &n.commitment(l.chain()));
-    r.handtekening = a.sign(&bericht(l.chain(), VERSIE, Ed25519::SCHEMA_ID, &nf, 5, &r.c_uit)).to_bytes();
+    r.handtekening = a
+        .sign(&bericht(
+            l.chain(),
+            VERSIE,
+            Ed25519::SCHEMA_ID,
+            &nf,
+            5,
+            &r.c_uit,
+        ))
+        .to_bytes();
     weigert(&mut l, &r.to_bytes(), F::Handtekening);
 }
 
@@ -269,7 +325,16 @@ fn chain_gewijzigd_na_tekenen() {
     mint_to_ledger(&mut l, &n);
     let mut r = kaal(&l, &a, &n, 0, uit(&l, 4, 1));
     let nf = nullifier(l.chain(), 0, &n.commitment(l.chain()));
-    r.handtekening = a.sign(&bericht(&ChainId([8u8; 32]), VERSIE, Ed25519::SCHEMA_ID, &nf, 4, &r.c_uit)).to_bytes();
+    r.handtekening = a
+        .sign(&bericht(
+            &ChainId([8u8; 32]),
+            VERSIE,
+            Ed25519::SCHEMA_ID,
+            &nf,
+            4,
+            &r.c_uit,
+        ))
+        .to_bytes();
     weigert(&mut l, &r.to_bytes(), F::Handtekening);
 }
 
@@ -285,7 +350,10 @@ fn elke_bit_van_de_handtekening() {
         q.handtekening[bit / 8] ^= 1 << (bit % 8);
         weigert(&mut l, &q.to_bytes(), F::Handtekening);
     }
-    assert!(l.besteed(&r.to_bytes()).is_ok(), "het ongewijzigde record hoort te slagen");
+    assert!(
+        l.besteed(&r.to_bytes()).is_ok(),
+        "het ongewijzigde record hoort te slagen"
+    );
 }
 
 /// Een record van keten A op keten B, met dezelfde munt op dezelfde positie.
@@ -304,7 +372,10 @@ fn record_van_keten_a_op_keten_b() {
     q.wortel = lb.root();
     q.bewijs = lb.acc().proof(0).unwrap();
     weigert(&mut lb, &q.to_bytes(), F::Handtekening);
-    assert!(la.besteed(&r.to_bytes()).is_ok(), "op keten A hoort het record te slagen");
+    assert!(
+        la.besteed(&r.to_bytes()).is_ok(),
+        "op keten A hoort het record te slagen"
+    );
 }
 
 /// M is exact het digest van 64 byte uit de specificatie; met de hand
@@ -321,12 +392,17 @@ fn bericht_volgens_specificatie() {
     let c_in = n.commitment(l.chain());
     let c_uit = uit(&l, 11, 1);
     let n_spec: Digest = dsh(b"GL/nullify/v1", &[&keten().0, &index.to_le_bytes(), &c_in]);
-    let m_spec: Digest = dsh(b"GL/besteding/v1", &[&keten().0, &[1u8], &[1u8], &n_spec, &[11u8], &c_uit]);
+    let m_spec: Digest = dsh(
+        b"GL/besteding/v1",
+        &[&keten().0, &[1u8], &[1u8], &n_spec, &[11u8], &c_uit],
+    );
     assert_eq!(nullifier(l.chain(), index, &c_in), n_spec);
     assert_eq!(bericht(l.chain(), 1, 1, &n_spec, 11, &c_uit), m_spec);
     let mut r = kaal(&l, &a, &n, 0, c_uit);
     r.handtekening = a.sign(&m_spec).to_bytes();
-    let b = l.besteed(&r.to_bytes()).expect("record getekend volgens de specificatie geweigerd");
+    let b = l
+        .besteed(&r.to_bytes())
+        .expect("record getekend volgens de specificatie geweigerd");
     assert_eq!(b.nullifier, n_spec);
 }
 
@@ -341,7 +417,12 @@ fn ongeldige_sleutel() {
     let mut l = Ledger::new(keten());
     let mut slecht = [0u8; 32];
     slecht[0] = GEEN_PUNT;
-    let n = Note { level: 4, epoch: 0, owner: owner_hash(Ed25519::SCHEMA, &slecht), secret: Secret([3; 32]) };
+    let n = Note {
+        level: 4,
+        epoch: 0,
+        owner: owner_hash(Ed25519::SCHEMA, &slecht),
+        secret: Secret([3; 32]),
+    };
     mint_to_ledger(&mut l, &n);
     let mut r = kaal(&l, &sleutel(18), &n, 0, uit(&l, 4, 1));
     r.pk = slecht;
@@ -379,17 +460,25 @@ fn twee_mintwegen_blokkeren_elkaar_niet() {
         let ander = munt(&h, 4, 5, 2);
         mint_to_ledger(&mut l, &eerlijk);
         l.mint(&ander);
-        assert_eq!(live(l.buckets(), l.spent(), 5, 4), Ok(2), "beide munten tellen in (5,4)");
+        assert_eq!(
+            live(l.buckets(), l.spent(), 5, 4),
+            Ok(2),
+            "beide munten tellen in (5,4)"
+        );
         let ra = |l: &Ledger| geldig(l, &a, &eerlijk, 0, uit(l, 4, 1)).to_bytes();
         let rh = |l: &Ledger| geldig(l, &h, &ander, 1, uit(l, 4, 2)).to_bytes();
         if eerst_ander_besteden {
-            let r = rh(&l); assert!(l.besteed(&r).is_ok());
+            let r = rh(&l);
+            assert!(l.besteed(&r).is_ok());
             assert_eq!(live(l.buckets(), l.spent(), 5, 4), Ok(1));
-            let r = ra(&l); assert!(l.besteed(&r).is_ok(), "eerlijke munt bevroren");
+            let r = ra(&l);
+            assert!(l.besteed(&r).is_ok(), "eerlijke munt bevroren");
         } else {
-            let r = ra(&l); assert!(l.besteed(&r).is_ok());
+            let r = ra(&l);
+            assert!(l.besteed(&r).is_ok());
             assert_eq!(live(l.buckets(), l.spent(), 5, 4), Ok(1));
-            let r = rh(&l); assert!(l.besteed(&r).is_ok(), "munt via Ledger::mint bevroren");
+            let r = rh(&l);
+            assert!(l.besteed(&r).is_ok(), "munt via Ledger::mint bevroren");
         }
         assert_eq!(live(l.buckets(), l.spent(), 5, 4), Ok(0));
         assert_eq!(live(l.buckets(), l.spent(), 0, 4), Ok(2));
@@ -405,7 +494,11 @@ fn mint_en_mint_to_ledger_geven_dezelfde_ledger() {
     let mut via_alias = Ledger::new(keten());
     for k in 0..12u8 {
         let n = munt(&sleutel(70 + k % 3), k % 5, (k % 4) as u64, k);
-        assert_eq!(via_mint.mint(&n), mint_to_ledger(&mut via_alias, &n), "positie {k}");
+        assert_eq!(
+            via_mint.mint(&n),
+            mint_to_ledger(&mut via_alias, &n),
+            "positie {k}"
+        );
     }
     assert_eq!(via_mint.buckets().len(), 12, "twaalf verschillende emmers");
     assert_eq!(toestand(&via_mint), toestand(&via_alias));
@@ -508,7 +601,9 @@ fn formaat_niveau_33() {
 fn formaat_diepte_65() {
     let (mut l, a, n) = een_munt();
     let mut r = kaal(&l, &a, &n, 0, uit(&l, 4, 1));
-    r.bewijs = Proof { path: vec![[0u8; 64]; MAX_DIEPTE + 1] };
+    r.bewijs = Proof {
+        path: vec![[0u8; 64]; MAX_DIEPTE + 1],
+    };
     teken(l.chain(), &a, &mut r);
     let b = r.to_bytes();
     assert_eq!(b.len(), record_bytes(65));
@@ -533,7 +628,12 @@ fn geen_wijziging_bij_weigering() {
     teken(l.chain(), &a, &mut slecht_lid);
     for r in [slecht_sig, slecht_uit, slecht_lid] {
         let nf = nullifier(l.chain(), 0, &n.commitment(l.chain()));
-        let (w, len, em, sp) = (l.root(), l.acc().len(), l.buckets().clone(), l.spent().clone());
+        let (w, len, em, sp) = (
+            l.root(),
+            l.acc().len(),
+            l.buckets().clone(),
+            l.spent().clone(),
+        );
         let voor = toestand(&l);
         assert!(l.besteed(&r.to_bytes()).is_err());
         assert_eq!(l.root(), w);
@@ -549,10 +649,24 @@ fn geen_wijziging_bij_weigering() {
 /// XOF-stroom uit een vaste seed, voor reproduceerbaar willekeurig werk.
 struct Stroom(blake3::OutputReader);
 impl Stroom {
-    fn new(seed: &[u8]) -> Self { let mut h = blake3::Hasher::new(); h.update(seed); Stroom(h.finalize_xof()) }
-    fn u64(&mut self) -> u64 { let mut b = [0u8; 8]; self.0.fill(&mut b); u64::from_le_bytes(b) }
-    fn tot(&mut self, n: u64) -> u64 { self.u64() % n }
-    fn bytes(&mut self, n: usize) -> Vec<u8> { let mut b = vec![0u8; n]; self.0.fill(&mut b); b }
+    fn new(seed: &[u8]) -> Self {
+        let mut h = blake3::Hasher::new();
+        h.update(seed);
+        Stroom(h.finalize_xof())
+    }
+    fn u64(&mut self) -> u64 {
+        let mut b = [0u8; 8];
+        self.0.fill(&mut b);
+        u64::from_le_bytes(b)
+    }
+    fn tot(&mut self, n: u64) -> u64 {
+        self.u64() % n
+    }
+    fn bytes(&mut self, n: usize) -> Vec<u8> {
+        let mut b = vec![0u8; n];
+        self.0.fill(&mut b);
+        b
+    }
 }
 
 /// Behoud: na een reeks geldige bestedingen is per niveau het aantal
@@ -581,12 +695,18 @@ fn behoud_per_niveau() {
         let mut nieuw = munt(&sleutel(nieuw_sk), n.level, l.epoch(), 0);
         nieuw.secret.0[4..8].copy_from_slice(&stap.to_le_bytes());
         let r = geldig(&l, &sleutel(sk), &n, i, nieuw.commitment(l.chain()));
-        let b = l.besteed(&r.to_bytes()).unwrap_or_else(|e| panic!("stap {stap}: geldige besteding geweigerd: {e:?}"));
+        let b = l
+            .besteed(&r.to_bytes())
+            .unwrap_or_else(|e| panic!("stap {stap}: geldige besteding geweigerd: {e:?}"));
         open.push((nieuw_sk, nieuw, b.index_uit));
     }
     for lv in 0..33u8 {
-        let besteedbaar: usize = l.buckets().keys().filter(|(_, v)| *v == lv)
-            .map(|&(e, v)| live(l.buckets(), l.spent(), e, v).unwrap()).sum();
+        let besteedbaar: usize = l
+            .buckets()
+            .keys()
+            .filter(|(_, v)| *v == lv)
+            .map(|&(e, v)| live(l.buckets(), l.spent(), e, v).unwrap())
+            .sum();
         assert_eq!(besteedbaar, uitgegeven[lv as usize], "niveau {lv}");
     }
 }
@@ -601,11 +721,17 @@ fn robuustheid_tienduizend_records() {
     let voor = toestand(&l);
     let mut aantal = 0usize;
     let mut probeer = |l: &mut Ledger, r: &[u8]| {
-        assert!(l.besteed(r).is_err(), "record van {} byte aanvaard", r.len());
+        assert!(
+            l.besteed(r).is_err(),
+            "record van {} byte aanvaard",
+            r.len()
+        );
         aantal += 1;
     };
     // 1. Elke afgekapte vorm van een geldig record.
-    for k in 0..goed.len() { probeer(&mut l, &goed[..k]); }
+    for k in 0..goed.len() {
+        probeer(&mut l, &goed[..k]);
+    }
     for _ in 0..2_500 {
         // 2. Volledig willekeurig, 0..=700 byte.
         let len = s.tot(701) as usize;
@@ -614,7 +740,10 @@ fn robuustheid_tienduizend_records() {
         // 3. Geldige kop, willekeurige rest, juiste lengte.
         let d = s.tot(MAX_DIEPTE as u64 + 1) as usize;
         let mut r = s.bytes(record_bytes(d));
-        r[0] = VERSIE; r[1] = Ed25519::SCHEMA_ID; r[10] = (s.tot(33)) as u8; r[147] = d as u8;
+        r[0] = VERSIE;
+        r[1] = Ed25519::SCHEMA_ID;
+        r[10] = (s.tot(33)) as u8;
+        r[147] = d as u8;
         probeer(&mut l, &r);
         // 4. Geldig record met 1 tot 4 verminkte bytes.
         let mut r = goed.clone();
@@ -622,13 +751,27 @@ fn robuustheid_tienduizend_records() {
             let p = s.tot(r.len() as u64) as usize;
             r[p] ^= (s.tot(255) + 1) as u8;
         }
-        if r != goed { probeer(&mut l, &r); }
+        if r != goed {
+            probeer(&mut l, &r);
+        }
         // 5. Geldig record, afgekapt of verlengd met willekeurige bytes.
         let mut r = goed.clone();
-        if s.tot(2) == 0 { r.truncate(s.tot(goed.len() as u64) as usize); } else { let x = s.tot(200) as usize + 1; r.extend(s.bytes(x)); }
+        if s.tot(2) == 0 {
+            r.truncate(s.tot(goed.len() as u64) as usize);
+        } else {
+            let x = s.tot(200) as usize + 1;
+            r.extend(s.bytes(x));
+        }
         probeer(&mut l, &r);
     }
     assert!(aantal >= 10_000, "maar {aantal} records geprobeerd");
-    assert_eq!(toestand(&l), voor, "ledger gewijzigd door geweigerde records");
-    assert!(l.besteed(&goed).is_ok(), "het geldige record hoort daarna nog te slagen");
+    assert_eq!(
+        toestand(&l),
+        voor,
+        "ledger gewijzigd door geweigerde records"
+    );
+    assert!(
+        l.besteed(&goed).is_ok(),
+        "het geldige record hoort daarna nog te slagen"
+    );
 }

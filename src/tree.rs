@@ -65,15 +65,23 @@ impl Proof {
         // Een u64-index heeft MAX_DIEPTE richtingen; een langer pad heeft geen
         // betekenis (en zou de schuif hieronder laten overlopen).
         let index = index as u64;
-        if self.path.len() > MAX_DIEPTE { return false; }
+        if self.path.len() > MAX_DIEPTE {
+            return false;
+        }
         let mut acc = leaf_node(index, leaf);
         for (k, sib) in self.path.iter().enumerate() {
-            acc = if (index >> k) & 1 == 0 { internal(&acc, sib) } else { internal(sib, &acc) };
+            acc = if (index >> k) & 1 == 0 {
+                internal(&acc, sib)
+            } else {
+                internal(sib, &acc)
+            };
         }
         &acc == root
     }
 
-    pub fn depth(&self) -> usize { self.path.len() }
+    pub fn depth(&self) -> usize {
+        self.path.len()
+    }
 
     /// Grootte van het bewijs: één digest per niveau.
     pub fn size_bytes(&self) -> usize {
@@ -87,7 +95,9 @@ impl Proof {
 
     /// Leest het draadformaat. `None` bij een lengte die geen veelvoud van 64 is.
     pub fn from_bytes(b: &[u8]) -> Option<Proof> {
-        if b.len() % crate::hash::DIGEST_BYTES != 0 { return None; }
+        if b.len() % crate::hash::DIGEST_BYTES != 0 {
+            return None;
+        }
         let path = b
             .chunks_exact(crate::hash::DIGEST_BYTES)
             .map(|c| c.try_into().expect("chunk van 64 byte"))
@@ -137,13 +147,20 @@ pub struct Accumulator {
 
 impl Accumulator {
     pub fn new() -> Self {
-        Self { leaves: Vec::new(), levels: Vec::new(), changelog: VecDeque::new(), max_log: DEFAULT_CHANGELOG }
+        Self {
+            leaves: Vec::new(),
+            levels: Vec::new(),
+            changelog: VecDeque::new(),
+            max_log: DEFAULT_CHANGELOG,
+        }
     }
 
     /// Hoeveel wortels terug een bewijs nog aanvaard wordt.
     pub fn set_changelog_size(&mut self, n: usize) {
         self.max_log = n.max(1);
-        while self.changelog.len() > self.max_log { self.changelog.pop_front(); }
+        while self.changelog.len() > self.max_log {
+            self.changelog.pop_front();
+        }
     }
 
     /// Voegt een blad toe. Kost O(log n): alleen de pad vanaf het nieuwe
@@ -153,7 +170,9 @@ impl Accumulator {
         let index = self.leaves.len();
         self.leaves.push(commitment);
 
-        if self.levels.is_empty() { self.levels.push(Vec::new()); }
+        if self.levels.is_empty() {
+            self.levels.push(Vec::new());
+        }
         let leaf = leaf_node(index as u64, &commitment);
         self.levels[0].push(leaf);
 
@@ -163,9 +182,13 @@ impl Accumulator {
             // Een niveau met één knoop is al de wortel: daarboven komt niets.
             // (Bij n=1 is het blad zelf de wortel — dit miste in de eerste
             //  versie en gaf een extra knoop, dus een andere wortel.)
-            if n < 2 { break; }
+            if n < 2 {
+                break;
+            }
             let want = (n + 1) / 2;
-            if self.levels.len() == k + 1 { self.levels.push(Vec::new()); }
+            if self.levels.len() == k + 1 {
+                self.levels.push(Vec::new());
+            }
 
             // Het ouderknooppunt van het laatste paar op dit niveau. Bij een
             // oneven aantal is dat het losse kind met zichzelf.
@@ -180,22 +203,35 @@ impl Accumulator {
             // knooppunt hier opnieuw berekend wordt. (Pariteit alleen is fout:
             // bij de tweede push ontstaat dit niveau én voltooit het paar.)
             let have = self.levels[k + 1].len();
-            if have < want { self.levels[k + 1].push(parent); }
-            else { self.levels[k + 1][want - 1] = parent; }
-
+            if have < want {
+                self.levels[k + 1].push(parent);
+            } else {
+                self.levels[k + 1][want - 1] = parent;
+            }
 
             // Het hoogste niveau heeft één knoop: dat is de wortel, klaar.
-            if self.levels[k + 1].len() == 1 && want == 1 { break; }
+            if self.levels[k + 1].len() == 1 && want == 1 {
+                break;
+            }
             k += 1;
         }
 
-        self.changelog.push_back(Change { root: self.root(), index });
-        while self.changelog.len() > self.max_log { self.changelog.pop_front(); }
+        self.changelog.push_back(Change {
+            root: self.root(),
+            index,
+        });
+        while self.changelog.len() > self.max_log {
+            self.changelog.pop_front();
+        }
         index
     }
 
-    pub fn len(&self) -> usize { self.leaves.len() }
-    pub fn is_empty(&self) -> bool { self.leaves.is_empty() }
+    pub fn len(&self) -> usize {
+        self.leaves.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.leaves.is_empty()
+    }
 
     /// O(1): de wortel is het enige knooppunt op het hoogste niveau.
     pub fn root(&self) -> Digest {
@@ -219,7 +255,9 @@ impl Accumulator {
     /// maar omdat we dan geen begrensd bewijs van die wortel naar nu kunnen
     /// leveren. Falen boven gokken.
     pub fn accepts_root(&self, root: &Digest) -> bool {
-        if *root == self.root() { return true; }
+        if *root == self.root() {
+            return true;
+        }
         self.changelog.iter().any(|c| &c.root == root)
     }
 
@@ -233,7 +271,9 @@ impl Accumulator {
 
     /// O(log n): siblings uit de cache, geen herbouw.
     pub fn proof(&self, index: usize) -> Option<Proof> {
-        if index >= self.leaves.len() { return None; }
+        if index >= self.leaves.len() {
+            return None;
+        }
         let mut path = Vec::with_capacity(self.levels.len());
         let mut idx = index;
         let mut k = 0;
@@ -241,7 +281,11 @@ impl Accumulator {
             let n = self.levels[k].len();
             // Los kind aan de rechterkant van een oneven niveau: de sibling is de knoop zelf.
             let sib = if idx % 2 == 0 {
-                if idx + 1 < n { idx + 1 } else { idx }
+                if idx + 1 < n {
+                    idx + 1
+                } else {
+                    idx
+                }
             } else {
                 idx - 1
             };
@@ -257,19 +301,31 @@ impl Accumulator {
 mod tests {
     use super::*;
 
-    fn leaf(x: u8) -> Digest { dsh(b"test/leaf", &[&[x]]) }
+    fn leaf(x: u8) -> Digest {
+        dsh(b"test/leaf", &[&[x]])
+    }
 
     /// Referentie-implementie: de triviale, volledige herbouw uit v1. Deze
     /// boom moet er exact hetzelfde uitzien, anders is de cache fout.
     fn root_na_herbouw(xs: &[Digest]) -> Digest {
-        if xs.is_empty() { return dsh(EMPTY_TAG, &[]); }
-        let mut level: Vec<Digest> = xs.iter().enumerate().map(|(i,l)| leaf_node(i as u64,l)).collect();
+        if xs.is_empty() {
+            return dsh(EMPTY_TAG, &[]);
+        }
+        let mut level: Vec<Digest> = xs
+            .iter()
+            .enumerate()
+            .map(|(i, l)| leaf_node(i as u64, l))
+            .collect();
         while level.len() > 1 {
             let mut next = Vec::new();
             let mut i = 0;
             while i < level.len() {
                 let l = level[i];
-                let r = if i + 1 < level.len() { level[i+1] } else { level[i] };
+                let r = if i + 1 < level.len() {
+                    level[i + 1]
+                } else {
+                    level[i]
+                };
                 next.push(internal(&l, &r));
                 i += 2;
             }
@@ -280,7 +336,9 @@ mod tests {
 
     fn tree(xs: &[u8]) -> Accumulator {
         let mut a = Accumulator::new();
-        for &x in xs { a.push(leaf(x)); }
+        for &x in xs {
+            a.push(leaf(x));
+        }
         a
     }
 
@@ -290,7 +348,9 @@ mod tests {
         for n in 0..=40usize {
             let xs: Vec<Digest> = (0..n as u8).map(leaf).collect();
             let mut a = Accumulator::new();
-            for x in &xs { a.push(*x); }
+            for x in &xs {
+                a.push(*x);
+            }
             assert_eq!(a.root(), root_na_herbouw(&xs), "verschil bij n={}", n);
         }
     }
@@ -322,18 +382,32 @@ mod tests {
     fn bewijs_uit_het_verleden_blijdt_geldig() {
         for n in 1..=9usize {
             let mut a = Accumulator::new();
-            for i in 0..n { a.push(leaf(i as u8)); }
+            for i in 0..n {
+                a.push(leaf(i as u8));
+            }
             let snapshot = a.clone();
             let root_oud = a.root();
 
             for m in 1..=9usize {
-                for j in 0..m { a.push(leaf((100 + j) as u8)); }
-                assert!(a.accepts_root(&root_oud), "oude wortel verworpen: n={} m={}", n, m);
+                for j in 0..m {
+                    a.push(leaf((100 + j) as u8));
+                }
+                assert!(
+                    a.accepts_root(&root_oud),
+                    "oude wortel verworpen: n={} m={}",
+                    n,
+                    m
+                );
 
                 for i in 0..n {
                     let p = snapshot.proof(i).expect("bewijs uit snapshot");
-                    assert!(a.verify_at(&p, i, &leaf(i as u8), &root_oud),
-                            "bewijs uit verleden verworpen: n={} m={} i={}", n, m, i);
+                    assert!(
+                        a.verify_at(&p, i, &leaf(i as u8), &root_oud),
+                        "bewijs uit verleden verworpen: n={} m={} i={}",
+                        n,
+                        m,
+                        i
+                    );
                 }
             }
         }
@@ -345,20 +419,30 @@ mod tests {
     #[test]
     fn oud_bewijs_op_verkeerde_wortel_faalt() {
         let mut a = Accumulator::new();
-        for i in 0..4 { a.push(leaf(i)); }
+        for i in 0..4 {
+            a.push(leaf(i));
+        }
         let snapshot = a.clone();
         let root_oud = a.root();
-        for j in 0..5 { a.push(leaf((200 + j) as u8)); }
+        for j in 0..5 {
+            a.push(leaf((200 + j) as u8));
+        }
         let root_nieuw = a.root();
 
         for i in 0..4 {
             let p = snapshot.proof(i).unwrap();
             // Eerst: het bewijs is op zichzelf geldig. Zonder deze toets zou de
             // faaltest hieronder ook slagen als het bewijs gewoon kapot was.
-            assert!(a.verify_at(&p, i, &leaf(i as u8), &root_oud),
-                    "bewijs faalt tegen zijn eigen wortel (i={})", i);
-            assert!(!p.verify(i, &leaf(i as u8), &root_nieuw),
-                    "oud bewijs werd geaccepteerd op nieuwe wortel (i={})", i);
+            assert!(
+                a.verify_at(&p, i, &leaf(i as u8), &root_oud),
+                "bewijs faalt tegen zijn eigen wortel (i={})",
+                i
+            );
+            assert!(
+                !p.verify(i, &leaf(i as u8), &root_nieuw),
+                "oud bewijs werd geaccepteerd op nieuwe wortel (i={})",
+                i
+            );
         }
     }
 
@@ -368,28 +452,43 @@ mod tests {
     fn wortel_buiten_het_venster_wordt_geweigerd() {
         let mut a = Accumulator::new();
         a.set_changelog_size(3);
-        for i in 0..2 { a.push(leaf(i)); }
+        for i in 0..2 {
+            a.push(leaf(i));
+        }
         let root_oud = a.root();
-        for j in 0..12 { a.push(leaf((50 + j) as u8)); }
+        for j in 0..12 {
+            a.push(leaf((50 + j) as u8));
+        }
 
-        assert!(!a.accepts_root(&root_oud), "verouderde wortel toch geaccepteerd");
+        assert!(
+            !a.accepts_root(&root_oud),
+            "verouderde wortel toch geaccepteerd"
+        );
         let bewijs = {
             let mut b = Accumulator::new();
-            for i in 0..2 { b.push(leaf(i)); }
+            for i in 0..2 {
+                b.push(leaf(i));
+            }
             b.proof(0).unwrap()
         };
-        assert!(!a.verify_at(&bewijs, 0, &leaf(0), &root_oud),
-                "verificatie buiten venster geslaagd");
+        assert!(
+            !a.verify_at(&bewijs, 0, &leaf(0), &root_oud),
+            "verificatie buiten venster geslaagd"
+        );
     }
 
     /// Within het venster geldt dezelfde vervalsingsresistentie als daarvoor.
     #[test]
     fn bewijs_binnen_venster_is_nog_steeds_vast() {
         let mut a = Accumulator::new();
-        for i in 0..3 { a.push(leaf(i)); }
+        for i in 0..3 {
+            a.push(leaf(i));
+        }
         let snapshot = a.clone();
         let root_oud = a.root();
-        for j in 0..6 { a.push(leaf((300 + j) as u8)); }
+        for j in 0..6 {
+            a.push(leaf((300 + j) as u8));
+        }
 
         let p = snapshot.proof(1).unwrap();
         assert!(a.verify_at(&p, 1, &leaf(1), &root_oud));
@@ -397,10 +496,19 @@ mod tests {
         for k in 0..p.path.len() {
             let mut v = p.clone();
             v.path[k][0] ^= 0x01;
-            assert!(!a.verify_at(&v, 1, &leaf(1), &root_oud), "bitverdraaid bewijs geaccepteerd");
+            assert!(
+                !a.verify_at(&v, 1, &leaf(1), &root_oud),
+                "bitverdraaid bewijs geaccepteerd"
+            );
         }
-        assert!(!a.verify_at(&p, 1, &leaf(2), &root_oud), "verkeerde bladeren geaccepteerd");
-        assert!(!a.verify_at(&p, 0, &leaf(1), &root_oud), "verkeerde index geaccepteerd");
+        assert!(
+            !a.verify_at(&p, 1, &leaf(2), &root_oud),
+            "verkeerde bladeren geaccepteerd"
+        );
+        assert!(
+            !a.verify_at(&p, 0, &leaf(1), &root_oud),
+            "verkeerde index geaccepteerd"
+        );
     }
 
     #[test]
@@ -417,7 +525,7 @@ mod tests {
 
     #[test]
     fn root_bindt_aantal_bladeren() {
-        assert_ne!(tree(&[0,1,2]).root(), tree(&[0,1,2,2]).root());
+        assert_ne!(tree(&[0, 1, 2]).root(), tree(&[0, 1, 2, 2]).root());
     }
 
     #[test]
@@ -425,12 +533,15 @@ mod tests {
         let a = tree(&[5, 9, 5]);
         let (p0, p2) = (a.proof(0).unwrap(), a.proof(2).unwrap());
         assert_ne!(p0, p2);
-        assert!(!p0.verify(2, &leaf(5), &a.root()), "positie is niet gebonden");
+        assert!(
+            !p0.verify(2, &leaf(5), &a.root()),
+            "positie is niet gebonden"
+        );
     }
 
     #[test]
     fn vervalsing_faalt() {
-        let a = tree(&[0,1,2,3,4,5,6,7,8]);
+        let a = tree(&[0, 1, 2, 3, 4, 5, 6, 7, 8]);
         let root = a.root();
         let p = a.proof(3).unwrap();
         assert!(!p.verify(3, &leaf(4), &root));
@@ -448,8 +559,13 @@ mod tests {
                 for bit in 0..8 {
                     let mut q = p.clone();
                     q.path[n][bit / 8] ^= 1 << (bit % 8);
-                    assert!(!q.verify(idx, &leaf(idx as u8), &root),
-                            "bitverdraaiing doorgekomen: idx={} niveau={} bit={}", idx, n, bit);
+                    assert!(
+                        !q.verify(idx, &leaf(idx as u8), &root),
+                        "bitverdraaiing doorgekomen: idx={} niveau={} bit={}",
+                        idx,
+                        n,
+                        bit
+                    );
                 }
             }
         }
@@ -457,23 +573,38 @@ mod tests {
 
     #[test]
     fn index_buiten_bereeg_geeft_geen_bewijs() {
-        let a = tree(&[1,2,3]);
+        let a = tree(&[1, 2, 3]);
         assert!(a.proof(3).is_none());
         assert!(a.proof(999).is_none());
     }
 
     #[test]
     fn volgorde_doet_ertoe() {
-        assert_ne!(tree(&[1,2]).root(), tree(&[2,1]).root());
+        assert_ne!(tree(&[1, 2]).root(), tree(&[2, 1]).root());
     }
 
     #[test]
     fn bewijsgrootte_groeit_logaritmisch() {
-        for (n, max_diepte) in [(1usize,1usize),(2,1),(3,2),(8,3),(1_000,10),(10_000,14)] {
+        for (n, max_diepte) in [
+            (1usize, 1usize),
+            (2, 1),
+            (3, 2),
+            (8, 3),
+            (1_000, 10),
+            (10_000, 14),
+        ] {
             let mut a = Accumulator::new();
-            for i in 0..n { a.push(leaf((i % 251) as u8)); }
+            for i in 0..n {
+                a.push(leaf((i % 251) as u8));
+            }
             let p = a.proof(n / 2).unwrap();
-            assert!(p.depth() <= max_diepte, "n={} diepte={} > {}", n, p.depth(), max_diepte);
+            assert!(
+                p.depth() <= max_diepte,
+                "n={} diepte={} > {}",
+                n,
+                p.depth(),
+                max_diepte
+            );
         }
     }
 
@@ -487,18 +618,34 @@ mod tests {
         let leaf = |i: usize| dsh(b"t", &[&(i as u64).to_le_bytes()]);
         for n in 1..=70usize {
             let mut a = Accumulator::new();
-            for i in 0..n { a.push(leaf(i)); }
+            for i in 0..n {
+                a.push(leaf(i));
+            }
             let root = a.root();
             for i in 0..n {
                 let p = a.proof(i).unwrap();
-                assert!(p.verify(i, &leaf(i), &root), "n={n} i={i}: echt bewijs faalt");
+                assert!(
+                    p.verify(i, &leaf(i), &root),
+                    "n={n} i={i}: echt bewijs faalt"
+                );
                 for j in (0..n).filter(|&j| j != i) {
-                    assert!(!p.verify(j, &leaf(i), &root), "n={n}: bewijs {i} geldt op positie {j}");
-                    assert!(!p.verify(i, &leaf(j), &root), "n={n}: bewijs {i} geldt voor blad {j}");
-                    assert!(!p.verify(j, &leaf(j), &root), "n={n}: bewijs {i} geldt voor ({j},{j})");
+                    assert!(
+                        !p.verify(j, &leaf(i), &root),
+                        "n={n}: bewijs {i} geldt op positie {j}"
+                    );
+                    assert!(
+                        !p.verify(i, &leaf(j), &root),
+                        "n={n}: bewijs {i} geldt voor blad {j}"
+                    );
+                    assert!(
+                        !p.verify(j, &leaf(j), &root),
+                        "n={n}: bewijs {i} geldt voor ({j},{j})"
+                    );
                 }
                 let mut q = p.clone();
-                if q.path.pop().is_some() { assert!(!q.verify(i, &leaf(i), &root), "n={n} i={i}: ingekort pad"); }
+                if q.path.pop().is_some() {
+                    assert!(!q.verify(i, &leaf(i), &root), "n={n} i={i}: ingekort pad");
+                }
                 let mut q = p.clone();
                 q.path.push(root);
                 assert!(!q.verify(i, &leaf(i), &root), "n={n} i={i}: verlengd pad");
@@ -506,12 +653,31 @@ mod tests {
         }
         let mut a = Accumulator::new();
         let mut roots = vec![];
-        for i in 0..200 { a.push(leaf(i)); roots.push(a.root()); }
+        for i in 0..200 {
+            a.push(leaf(i));
+            roots.push(a.root());
+        }
         let aanvaard: Vec<usize> = (0..200).filter(|&i| a.accepts_root(&roots[i])).collect();
-        assert_eq!(aanvaard, (136..200).collect::<Vec<_>>(), "venster is niet precies wortels 136..=199");
-        let bewijs_bij = |n: usize| { let mut b = Accumulator::new(); for i in 0..n { b.push(leaf(i)); } b.proof(5).unwrap() };
-        assert!(a.verify_at(&bewijs_bij(137), 5, &leaf(5), &roots[136]), "waar bewijs binnen het venster geweigerd");
-        assert!(!a.verify_at(&bewijs_bij(101), 5, &leaf(5), &roots[100]), "waar bewijs buiten het venster aanvaard");
+        assert_eq!(
+            aanvaard,
+            (136..200).collect::<Vec<_>>(),
+            "venster is niet precies wortels 136..=199"
+        );
+        let bewijs_bij = |n: usize| {
+            let mut b = Accumulator::new();
+            for i in 0..n {
+                b.push(leaf(i));
+            }
+            b.proof(5).unwrap()
+        };
+        assert!(
+            a.verify_at(&bewijs_bij(137), 5, &leaf(5), &roots[136]),
+            "waar bewijs binnen het venster geweigerd"
+        );
+        assert!(
+            !a.verify_at(&bewijs_bij(101), 5, &leaf(5), &roots[100]),
+            "waar bewijs buiten het venster aanvaard"
+        );
     }
 
     /// Stap 7e: de index gaat als u64 little-endian, 8 byte, de hash in,

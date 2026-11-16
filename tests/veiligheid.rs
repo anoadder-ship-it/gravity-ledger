@@ -13,12 +13,21 @@ use gravity_ledger::spend::mint_to_ledger;
 use gravity_ledger::tree::{Proof, MAX_DIEPTE};
 use gravity_ledger::{ChainId, Ledger, Note, Secret};
 
-fn keten() -> ChainId { ChainId([3u8; 32]) }
+fn keten() -> ChainId {
+    ChainId([3u8; 32])
+}
 
 fn noot(level: u8, epoch: u64, k: u8) -> Note {
     let mut s = [0u8; 32];
-    s[0] = k; s[1] = level; s[2] = epoch as u8;
-    Note { level, epoch, owner: [0u8; 64], secret: Secret(s) }
+    s[0] = k;
+    s[1] = level;
+    s[2] = epoch as u8;
+    Note {
+        level,
+        epoch,
+        owner: [0u8; 64],
+        secret: Secret(s),
+    }
 }
 
 /// G4 / R3: drie correct getekende records voor munten in de lege emmer
@@ -59,12 +68,25 @@ fn g4_besteden_uit_lege_emmer_faalt() {
         let c_uit = noot(5, 9, 100 + k).commitment(l.chain());
         let nf = nullifier(l.chain(), k as u64, &c_in);
         let m = bericht(l.chain(), VERSIE, Ed25519::SCHEMA_ID, &nf, 5, &c_uit);
-        let r = Record { versie: VERSIE, schema: Ed25519::SCHEMA_ID, index_in: k as u64, niveau: 5, epoch_in: 9,
-                         geheim_in: n.secret.0, pk, wortel: l.root(), bewijs: Proof { path: vec![] }, c_uit,
-                         handtekening: sk.sign(&m).to_bytes() };
+        let r = Record {
+            versie: VERSIE,
+            schema: Ed25519::SCHEMA_ID,
+            index_in: k as u64,
+            niveau: 5,
+            epoch_in: 9,
+            geheim_in: n.secret.0,
+            pk,
+            wortel: l.root(),
+            bewijs: Proof { path: vec![] },
+            c_uit,
+            handtekening: sk.sign(&m).to_bytes(),
+        };
         let voor = format!("{l:?}");
-        assert_eq!(l.besteed(&r.to_bytes()), Err(BestedingFout::GeenLid),
-                   "besteding {k} uit lege emmer (9,5)");
+        assert_eq!(
+            l.besteed(&r.to_bytes()),
+            Err(BestedingFout::GeenLid),
+            "besteding {k} uit lege emmer (9,5)"
+        );
         assert_eq!(format!("{l:?}"), voor, "ledger gewijzigd bij weigering {k}");
     }
 }
@@ -75,15 +97,23 @@ fn g4_besteden_uit_lege_emmer_faalt() {
 #[test]
 fn stap3_niveau_staat_publiek_in_het_blad() {
     let mut l = Ledger::new(keten());
-    for k in 0..5 { mint_to_ledger(&mut l, &noot(7, 1, k)); }
+    for k in 0..5 {
+        mint_to_ledger(&mut l, &noot(7, 1, k));
+    }
     let n = noot(3, 1, 9);
     let i = mint_to_ledger(&mut l, &n);
     let c = n.commitment(l.chain());
     let p = l.acc().proof(i).unwrap();
     let w = l.root();
-    assert!(l.is_lid(&p, i, 3, &c, &w), "echte noot op haar eigen niveau geweigerd");
+    assert!(
+        l.is_lid(&p, i, 3, &c, &w),
+        "echte noot op haar eigen niveau geweigerd"
+    );
     for niveau in (0..DENOM_LEVELS as u8).filter(|&v| v != 3) {
-        assert!(!l.is_lid(&p, i, niveau, &c, &w), "noot van niveau 3 bewijsbaar als niveau {niveau}");
+        assert!(
+            !l.is_lid(&p, i, niveau, &c, &w),
+            "noot van niveau 3 bewijsbaar als niveau {niveau}"
+        );
     }
 }
 
@@ -97,20 +127,33 @@ fn stap4_commitment_bindt_de_eigenaar() {
     van_a.owner = owner_hash(b"ed25519", &[0xAA; 32]);
     let mut van_b = van_a;
     van_b.owner = owner_hash(b"ed25519", &[0xBB; 32]);
-    assert_ne!(van_a.commitment(l.chain()), van_b.commitment(l.chain()), "eigenaar zit niet in de commitment");
+    assert_ne!(
+        van_a.commitment(l.chain()),
+        van_b.commitment(l.chain()),
+        "eigenaar zit niet in de commitment"
+    );
 
     let i = mint_to_ledger(&mut l, &van_a);
     let p = l.acc().proof(i).unwrap();
     let w = l.root();
     assert!(l.is_lid(&p, i, 6, &van_a.commitment(l.chain()), &w));
-    assert!(!l.is_lid(&p, i, 6, &van_b.commitment(l.chain()), &w), "bewijs van A geldt voor B");
+    assert!(
+        !l.is_lid(&p, i, 6, &van_b.commitment(l.chain()), &w),
+        "bewijs van A geldt voor B"
+    );
 }
 
 /// De eigenaarshash scheidt schema's en sleutels.
 #[test]
 fn stap4_eigenaarshash_scheidt_schema_en_sleutel() {
-    assert_ne!(owner_hash(b"ed25519", &[1; 32]), owner_hash(b"fn-dsa-512", &[1; 32]));
-    assert_ne!(owner_hash(b"ed25519", &[1; 32]), owner_hash(b"ed25519", &[2; 32]));
+    assert_ne!(
+        owner_hash(b"ed25519", &[1; 32]),
+        owner_hash(b"fn-dsa-512", &[1; 32])
+    );
+    assert_ne!(
+        owner_hash(b"ed25519", &[1; 32]),
+        owner_hash(b"ed25519", &[2; 32])
+    );
 }
 
 /// Stap 6: het bewijs is niet vervormbaar. De richting op elk niveau mag niet
@@ -122,19 +165,31 @@ fn stap4_eigenaarshash_scheidt_schema_en_sleutel() {
 fn stap6_bewijs_is_niet_vervormbaar() {
     for n in 1..=20u8 {
         let mut l = Ledger::new(keten());
-        for k in 0..n { mint_to_ledger(&mut l, &noot(4, 1, k)); }
+        for k in 0..n {
+            mint_to_ledger(&mut l, &noot(4, 1, k));
+        }
         let w = l.root();
         for i in 0..n as usize {
             let c = noot(4, 1, i as u8).commitment(l.chain());
             let echt = l.acc().proof(i).unwrap();
-            assert!(l.is_lid(&echt, i, 4, &c, &w), "n={n} i={i}: echt bewijs geweigerd");
+            assert!(
+                l.is_lid(&echt, i, 4, &c, &w),
+                "n={n} i={i}: echt bewijs geweigerd"
+            );
             let bytes = echt.to_bytes();
-            assert_eq!(Proof::from_bytes(&bytes).as_ref(), Some(&echt), "n={n} i={i}: codering is niet omkeerbaar");
+            assert_eq!(
+                Proof::from_bytes(&bytes).as_ref(),
+                Some(&echt),
+                "n={n} i={i}: codering is niet omkeerbaar"
+            );
             for bit in 0..bytes.len() * 8 {
                 let mut b = bytes.clone();
                 b[bit / 8] ^= 1 << (bit % 8);
                 if let Some(q) = Proof::from_bytes(&b) {
-                    assert!(!l.is_lid(&q, i, 4, &c, &w), "n={n} i={i}: bit {bit} verdraaid en toch aanvaard");
+                    assert!(
+                        !l.is_lid(&q, i, 4, &c, &w),
+                        "n={n} i={i}: bit {bit} verdraaid en toch aanvaard"
+                    );
                 }
             }
         }
@@ -159,7 +214,11 @@ fn stap6_te_lang_bewijs_wordt_geweigerd() {
     let per_niveau = p.to_bytes().len();
     let lang = Proof::from_bytes(&vec![0u8; per_niveau * (MAX_DIEPTE + 1)]).unwrap();
     assert_eq!(lang.depth(), MAX_DIEPTE + 1);
-    assert!(!l.is_lid(&lang, 0, 4, &c, &w), "bewijs van {} niveaus aanvaard", lang.depth());
+    assert!(
+        !l.is_lid(&lang, 0, 4, &c, &w),
+        "bewijs van {} niveaus aanvaard",
+        lang.depth()
+    );
 }
 
 /// De codering van `dsh`, met de hand uitgeschreven, los van de implementatie:
@@ -198,7 +257,12 @@ fn g5_dsh_volgt_de_codering() {
         (b"GL/node/v0", &[b"", b""]),
     ];
     for (tag, parts) in gevallen {
-        assert_eq!(dsh(tag, parts), dsh_volgens_spec(tag, parts), "tag {:?}", tag);
+        assert_eq!(
+            dsh(tag, parts),
+            dsh_volgens_spec(tag, parts),
+            "tag {:?}",
+            tag
+        );
     }
 }
 
@@ -208,25 +272,49 @@ fn g5_dsh_volgt_de_codering() {
 #[test]
 fn r4_behoud_omgekeerd() {
     let mut x: u64 = 0x9E3779B97F4A7C15;
-    let mut nx = |m: u64| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; x % m };
+    let mut nx = |m: u64| {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x % m
+    };
     let (mut ok, mut fout) = (0u32, 0u32);
     for _ in 0..2_000_000 {
         let mut s = Shape::default();
         let lo = nx(31) as usize;
         for d in lo..lo + 3 {
-            s.ins[d] = nx(3) as u32; s.outs[d] = nx(3) as u32; s.fee[d] = nx(2) as u32;
-            s.splits[d] = nx(2) as u32; s.merges[d] = nx(2) as u32;
+            s.ins[d] = nx(3) as u32;
+            s.outs[d] = nx(3) as u32;
+            s.fee[d] = nx(2) as u32;
+            s.splits[d] = nx(2) as u32;
+            s.merges[d] = nx(2) as u32;
         }
         if s.check().is_ok() {
             ok += 1;
-            if Shape::total_value(&s.ins) != Shape::total_value(&s.outs) + Shape::total_value(&s.fee) { fout += 1; }
+            if Shape::total_value(&s.ins)
+                != Shape::total_value(&s.outs) + Shape::total_value(&s.fee)
+            {
+                fout += 1;
+            }
         }
     }
-    assert!(ok > 0, "geen enkele geldige vorm gegenereerd: de test toetst niets");
-    assert_eq!(fout, 0, "{fout} van {ok} aanvaarde vormen hebben ongelijke sommen");
-    let mut s = Shape::default(); s.ins[32] = 1; s.splits[32] = 1; s.outs[31] = 2;
+    assert!(
+        ok > 0,
+        "geen enkele geldige vorm gegenereerd: de test toetst niets"
+    );
+    assert_eq!(
+        fout, 0,
+        "{fout} van {ok} aanvaarde vormen hebben ongelijke sommen"
+    );
+    let mut s = Shape::default();
+    s.ins[32] = 1;
+    s.splits[32] = 1;
+    s.outs[31] = 2;
     assert!(s.check().is_ok(), "splitsen op niveau 32 geweigerd");
-    let mut s = Shape::default(); s.merges[32] = 1; s.ins[31] = 2; s.outs[32] = 1;
+    let mut s = Shape::default();
+    s.merges[32] = 1;
+    s.ins[31] = 2;
+    s.outs[32] = 1;
     assert!(s.check().is_ok(), "samenvoegen naar niveau 32 geweigerd");
 }
 

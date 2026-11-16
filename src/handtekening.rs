@@ -58,17 +58,21 @@ impl Handtekening for Ed25519 {
 
     fn verifieer(pk: &[u8], bericht: &[u8], sig: &[u8]) -> Result<(), SigFout> {
         let sleutel = sleutel(pk)?;
-        let sig: &[u8; 64] = sig
-            .try_into()
-            .map_err(|_| SigFout::SigLengte { verwacht: Self::SIG_BYTES, kreeg: sig.len() })?;
+        let sig: &[u8; 64] = sig.try_into().map_err(|_| SigFout::SigLengte {
+            verwacht: Self::SIG_BYTES,
+            kreeg: sig.len(),
+        })?;
         let handtekening = ed25519_dalek::Signature::from_bytes(sig);
-        sleutel.verify_strict(bericht, &handtekening).map_err(|_| SigFout::Ongeldig)
+        sleutel
+            .verify_strict(bericht, &handtekening)
+            .map_err(|_| SigFout::Ongeldig)
     }
 }
 
 fn sleutel(pk: &[u8]) -> Result<ed25519_dalek::VerifyingKey, SigFout> {
-    let pk: &[u8; 32] = pk
-        .try_into()
-        .map_err(|_| SigFout::PkLengte { verwacht: Ed25519::PK_BYTES, kreeg: pk.len() })?;
+    let pk: &[u8; 32] = pk.try_into().map_err(|_| SigFout::PkLengte {
+        verwacht: Ed25519::PK_BYTES,
+        kreeg: pk.len(),
+    })?;
     ed25519_dalek::VerifyingKey::from_bytes(pk).map_err(|_| SigFout::OngeldigeSleutel)
 }

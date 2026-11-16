@@ -74,7 +74,13 @@ impl Note {
     pub fn commitment(&self, chain: &ChainId) -> Digest {
         dsh(
             b"GL/commit/v1",
-            &[&chain.0, &[self.level], &self.epoch.to_le_bytes(), &self.owner, &self.secret.0],
+            &[
+                &chain.0,
+                &[self.level],
+                &self.epoch.to_le_bytes(),
+                &self.owner,
+                &self.secret.0,
+            ],
         )
     }
 
@@ -96,7 +102,12 @@ impl Note {
     pub fn nullifier(&self, chain: &ChainId) -> Digest {
         dsh(
             b"GL/nullify/v0",
-            &[&chain.0, &[self.level], &self.epoch.to_le_bytes(), &self.secret.0],
+            &[
+                &chain.0,
+                &[self.level],
+                &self.epoch.to_le_bytes(),
+                &self.secret.0,
+            ],
         )
     }
 
@@ -116,7 +127,13 @@ impl Note {
     pub fn audit_tag(&self, chain: &ChainId, auditor: &[u8]) -> Digest {
         dsh(
             b"GL/audit/v0",
-            &[&chain.0, auditor, &[self.level], &self.epoch.to_le_bytes(), &self.secret.0],
+            &[
+                &chain.0,
+                auditor,
+                &[self.level],
+                &self.epoch.to_le_bytes(),
+                &self.secret.0,
+            ],
         )
     }
 }
@@ -130,7 +147,12 @@ mod tests {
     }
 
     fn note(level: u8) -> Note {
-        Note { level, epoch: 41, owner: [0u8; 64], secret: Secret([0xA5 + level; 32]) }
+        Note {
+            level,
+            epoch: 41,
+            owner: [0u8; 64],
+            secret: Secret([0xA5 + level; 32]),
+        }
     }
 
     #[test]
@@ -143,7 +165,11 @@ mod tests {
     fn nullifier_is_deterministisch_en_verschilt_van_commitment() {
         let c = chain();
         let n = note(5);
-        assert_eq!(n.nullifier(&c), n.nullifier(&c), "image moet deterministisch zijn");
+        assert_eq!(
+            n.nullifier(&c),
+            n.nullifier(&c),
+            "image moet deterministisch zijn"
+        );
         assert_ne!(n.commitment(&c), n.nullifier(&c));
     }
 
@@ -176,8 +202,14 @@ mod tests {
     fn audit_tag_alleen_voor_de_wettige_auditor() {
         let c = chain();
         let n = note(6);
-        assert_eq!(n.audit_tag(&c, b"toezichthouder-x"), n.audit_tag(&c, b"toezichthouder-x"));
-        assert_ne!(n.audit_tag(&c, b"toezichthouder-x"), n.audit_tag(&c, b"iedereen"));
+        assert_eq!(
+            n.audit_tag(&c, b"toezichthouder-x"),
+            n.audit_tag(&c, b"toezichthouder-x")
+        );
+        assert_ne!(
+            n.audit_tag(&c, b"toezichthouder-x"),
+            n.audit_tag(&c, b"iedereen")
+        );
     }
 
     #[test]

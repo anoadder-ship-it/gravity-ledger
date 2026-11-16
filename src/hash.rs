@@ -48,7 +48,8 @@ fn blake3_256(data: &[u8]) -> [u8; 32] {
 /// eenduidig; in v0 ontbrak die, waardoor tag `t ‖ len ‖ d` zonder delen
 /// dezelfde hash gaf als tag `t` met deel `d` (review 2026-11-10, G5).
 pub fn dsh(tag: &[u8], parts: &[&[u8]]) -> Digest {
-    let mut buf = Vec::with_capacity(64 + tag.len() + parts.iter().map(|p| 8 + p.len()).sum::<usize>());
+    let mut buf =
+        Vec::with_capacity(64 + tag.len() + parts.iter().map(|p| 8 + p.len()).sum::<usize>());
     buf.extend_from_slice(b"gravity-ledger/v1");
     buf.push(0xff);
     buf.extend_from_slice(&(tag.len() as u64).to_le_bytes());
@@ -79,7 +80,11 @@ mod tests {
             hex(&blake3_256(b"")),
             "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
         );
-        assert_eq!(&hash(b"")[..32], &blake3_256(b"")[..], "XOF-prefix wijkt af");
+        assert_eq!(
+            &hash(b"")[..32],
+            &blake3_256(b"")[..],
+            "XOF-prefix wijkt af"
+        );
     }
 
     #[test]
@@ -95,5 +100,7 @@ mod tests {
         assert_ne!(&hash(b"proef")[..], &b"proef"[..]);
     }
 
-    fn hex(d: &[u8]) -> String { d.iter().map(|b| format!("{:02x}", b)).collect() }
+    fn hex(d: &[u8]) -> String {
+        d.iter().map(|b| format!("{:02x}", b)).collect()
+    }
 }

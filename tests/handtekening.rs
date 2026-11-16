@@ -37,16 +37,29 @@ const L: [u8; 32] = [
 
 fn hex(s: &str) -> Vec<u8> {
     assert!(s.len() % 2 == 0, "oneven hex");
-    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .collect()
 }
 
-struct Bytes { pk: Vec<u8>, bericht: Vec<u8>, sig: Vec<u8> }
+struct Bytes {
+    pk: Vec<u8>,
+    bericht: Vec<u8>,
+    sig: Vec<u8>,
+}
 
 fn bytes(v: &Vector) -> Bytes {
-    Bytes { pk: hex(v.pk), bericht: hex(v.bericht), sig: hex(v.sig) }
+    Bytes {
+        pk: hex(v.pk),
+        bericht: hex(v.bericht),
+        sig: hex(v.sig),
+    }
 }
 
-fn sha_abc() -> Bytes { bytes(&RFC8032_7_1[3]) }
+fn sha_abc() -> Bytes {
+    bytes(&RFC8032_7_1[3])
+}
 
 /// Known-answer: de trait aanvaardt elke RFC-vector, en de bibliotheek leidt
 /// uit het geheim precies de RFC-sleutel en -handtekening af.
@@ -54,12 +67,27 @@ fn sha_abc() -> Bytes { bytes(&RFC8032_7_1[3]) }
 fn rfc8032_vectoren_via_de_trait() {
     for v in &RFC8032_7_1 {
         let b = bytes(v);
-        assert_eq!(Ed25519::verifieer(&b.pk, &b.bericht, &b.sig), Ok(()), "{}: geldige handtekening geweigerd", v.naam);
+        assert_eq!(
+            Ed25519::verifieer(&b.pk, &b.bericht, &b.sig),
+            Ok(()),
+            "{}: geldige handtekening geweigerd",
+            v.naam
+        );
 
         let geheim: [u8; 32] = hex(v.geheim).try_into().unwrap();
         let sk = SigningKey::from_bytes(&geheim);
-        assert_eq!(sk.verifying_key().to_bytes().to_vec(), b.pk, "{}: afgeleide sleutel wijkt af", v.naam);
-        assert_eq!(sk.sign(&b.bericht).to_bytes().to_vec(), b.sig, "{}: handtekening wijkt af", v.naam);
+        assert_eq!(
+            sk.verifying_key().to_bytes().to_vec(),
+            b.pk,
+            "{}: afgeleide sleutel wijkt af",
+            v.naam
+        );
+        assert_eq!(
+            sk.sign(&b.bericht).to_bytes().to_vec(),
+            b.sig,
+            "{}: handtekening wijkt af",
+            v.naam
+        );
     }
 }
 
@@ -80,7 +108,10 @@ fn geen_kruisgeldigheid_tussen_vectoren() {
             if i == j {
                 assert_eq!(uitkomst, Ok(()), "vector {i} geweigerd");
             } else {
-                assert!(uitkomst.is_err(), "handtekening {i} geldt voor sleutel en bericht {j}");
+                assert!(
+                    uitkomst.is_err(),
+                    "handtekening {i} geldt voor sleutel en bericht {j}"
+                );
             }
         }
     }
@@ -95,14 +126,26 @@ fn lengtes_exact() {
     for n in [0usize, 31, 33, 64] {
         let mut pk = b.pk.clone();
         pk.resize(n, 0);
-        assert_eq!(Ed25519::verifieer(&pk, &b.bericht, &b.sig),
-                   Err(SigFout::PkLengte { verwacht: 32, kreeg: n }), "pk van {n} bytes");
+        assert_eq!(
+            Ed25519::verifieer(&pk, &b.bericht, &b.sig),
+            Err(SigFout::PkLengte {
+                verwacht: 32,
+                kreeg: n
+            }),
+            "pk van {n} bytes"
+        );
     }
     for n in [0usize, 32, 63, 65, 128] {
         let mut sig = b.sig.clone();
         sig.resize(n, 0);
-        assert_eq!(Ed25519::verifieer(&b.pk, &b.bericht, &sig),
-                   Err(SigFout::SigLengte { verwacht: 64, kreeg: n }), "handtekening van {n} bytes");
+        assert_eq!(
+            Ed25519::verifieer(&b.pk, &b.bericht, &sig),
+            Err(SigFout::SigLengte {
+                verwacht: 64,
+                kreeg: n
+            }),
+            "handtekening van {n} bytes"
+        );
     }
 }
 
@@ -116,17 +159,26 @@ fn elke_bitverdraaiing_faalt() {
     for bit in 0..b.sig.len() * 8 {
         let mut sig = b.sig.clone();
         sig[bit / 8] ^= 1 << (bit % 8);
-        assert!(Ed25519::verifieer(&b.pk, &b.bericht, &sig).is_err(), "handtekening, bit {bit}");
+        assert!(
+            Ed25519::verifieer(&b.pk, &b.bericht, &sig).is_err(),
+            "handtekening, bit {bit}"
+        );
     }
     for bit in 0..b.bericht.len() * 8 {
         let mut m = b.bericht.clone();
         m[bit / 8] ^= 1 << (bit % 8);
-        assert!(Ed25519::verifieer(&b.pk, &m, &b.sig).is_err(), "bericht, bit {bit}");
+        assert!(
+            Ed25519::verifieer(&b.pk, &m, &b.sig).is_err(),
+            "bericht, bit {bit}"
+        );
     }
     for bit in 0..b.pk.len() * 8 {
         let mut pk = b.pk.clone();
         pk[bit / 8] ^= 1 << (bit % 8);
-        assert!(Ed25519::verifieer(&pk, &b.bericht, &b.sig).is_err(), "sleutel, bit {bit}");
+        assert!(
+            Ed25519::verifieer(&pk, &b.bericht, &b.sig).is_err(),
+            "sleutel, bit {bit}"
+        );
     }
 }
 
@@ -137,7 +189,12 @@ fn elke_bitverdraaiing_faalt() {
 fn niet_canonieke_s_faalt() {
     for v in &RFC8032_7_1 {
         let b = bytes(v);
-        assert_eq!(Ed25519::verifieer(&b.pk, &b.bericht, &b.sig), Ok(()), "{}", v.naam);
+        assert_eq!(
+            Ed25519::verifieer(&b.pk, &b.bericht, &b.sig),
+            Ok(()),
+            "{}",
+            v.naam
+        );
 
         let mut sig = b.sig.clone();
         let mut carry = 0u16;
@@ -147,7 +204,11 @@ fn niet_canonieke_s_faalt() {
             carry = s >> 8;
         }
         assert_eq!(carry, 0, "{}: S + ℓ past niet in 32 bytes", v.naam);
-        assert!(Ed25519::verifieer(&b.pk, &b.bericht, &sig).is_err(), "{}: S + ℓ aanvaard", v.naam);
+        assert!(
+            Ed25519::verifieer(&b.pk, &b.bericht, &sig).is_err(),
+            "{}: S + ℓ aanvaard",
+            v.naam
+        );
     }
 }
 
@@ -165,9 +226,15 @@ const NEUTRAAL: [u8; 32] = {
 fn sleutel_van_kleine_orde_wordt_geweigerd() {
     let mut sig = [0u8; 64];
     sig[..32].copy_from_slice(&NEUTRAAL);
-    for bericht in [&b"gravity-ledger: willekeurig vast bericht"[..], b"", &[0xAB; 64]] {
-        assert!(Ed25519::verifieer(&NEUTRAAL, bericht, &sig).is_err(),
-                "handtekening onder het neutrale punt aanvaard voor {bericht:?}");
+    for bericht in [
+        &b"gravity-ledger: willekeurig vast bericht"[..],
+        b"",
+        &[0xAB; 64],
+    ] {
+        assert!(
+            Ed25519::verifieer(&NEUTRAAL, bericht, &sig).is_err(),
+            "handtekening onder het neutrale punt aanvaard voor {bericht:?}"
+        );
     }
 }
 
@@ -181,10 +248,17 @@ fn geen_punt_op_de_kromme_geeft_ongeldige_sleutel() {
     let b = sha_abc();
     let mut pk = [0u8; 32];
     pk[0] = GEEN_PUNT;
-    assert_eq!(Ed25519::verifieer(&pk, &b.bericht, &b.sig), Err(SigFout::OngeldigeSleutel));
+    assert_eq!(
+        Ed25519::verifieer(&pk, &b.bericht, &b.sig),
+        Err(SigFout::OngeldigeSleutel)
+    );
     // De kleinere waarden zijn wel punten: de fout komt dan uit de handtekening.
     for n in 0..GEEN_PUNT {
         pk[0] = n;
-        assert_eq!(Ed25519::verifieer(&pk, &b.bericht, &b.sig), Err(SigFout::Ongeldig), "n = {n}");
+        assert_eq!(
+            Ed25519::verifieer(&pk, &b.bericht, &b.sig),
+            Err(SigFout::Ongeldig),
+            "n = {n}"
+        );
     }
 }

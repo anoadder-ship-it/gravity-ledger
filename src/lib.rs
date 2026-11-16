@@ -8,12 +8,12 @@
 pub mod bench;
 pub mod besteding;
 pub mod conservation;
-pub mod spend;
 pub mod handtekening;
 pub mod hash;
 #[cfg(test)]
 pub mod kat;
 pub mod note;
+pub mod spend;
 pub mod tree;
 
 pub use conservation::Shape;
@@ -79,7 +79,15 @@ pub struct Ledger {
 
 impl Ledger {
     pub fn new(chain: ChainId) -> Self {
-        Self { chain, epoch: 0, acc: Accumulator::new(), nullified: std::collections::BTreeSet::new(), buckets: spend::Buckets::new(), minted: Vec::new(), spent: spend::Spents::new() }
+        Self {
+            chain,
+            epoch: 0,
+            acc: Accumulator::new(),
+            nullified: std::collections::BTreeSet::new(),
+            buckets: spend::Buckets::new(),
+            minted: Vec::new(),
+            spent: spend::Spents::new(),
+        }
     }
 
     /// Neemt een noot op in de blinde accumulator (storten) en telt hem in
@@ -97,7 +105,9 @@ impl Ledger {
     /// (STATUS.md sectie 6, punt 6); `mint` controleert niet wie opneemt, en
     /// ook niet het niveau of het epoch van de noot.
     pub fn mint(&mut self, note: &Note) -> usize {
-        let idx = self.acc.push(blad(note.level, &note.commitment(&self.chain)));
+        let idx = self
+            .acc
+            .push(blad(note.level, &note.commitment(&self.chain)));
         let emmer = (note.epoch, note.level);
         self.minted.push(emmer);
         *self.buckets.entry(emmer).or_insert(0) += 1;
@@ -109,30 +119,50 @@ impl Ledger {
     }
 
     /// Huidig epoch van de ledger.
-    pub fn epoch(&self) -> u64 { self.epoch }
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
 
     /// De keten waaraan deze ledger gebonden is.
-    pub fn chain(&self) -> &ChainId { &self.chain }
+    pub fn chain(&self) -> &ChainId {
+        &self.chain
+    }
 
     /// De accumulator, alleen lezen. Toevoegen gaat uitsluitend via `mint` en
     /// `besteed`, dus altijd als `blad(niveau, commitment)`.
-    pub fn acc(&self) -> &Accumulator { &self.acc }
+    pub fn acc(&self) -> &Accumulator {
+        &self.acc
+    }
 
     /// Opnames per emmer, alleen lezen.
-    pub fn buckets(&self) -> &spend::Buckets { &self.buckets }
+    pub fn buckets(&self) -> &spend::Buckets {
+        &self.buckets
+    }
 
     /// Bestedingen per emmer, alleen lezen.
-    pub fn spent(&self) -> &spend::Spents { &self.spent }
+    pub fn spent(&self) -> &spend::Spents {
+        &self.spent
+    }
 
     /// Is deze nullifier al verbrand? Verbranden gebeurt alleen in
     /// `besteed` (stap 7).
-    pub fn is_verbrand(&self, nullifier: &Digest) -> bool { self.nullified.contains(nullifier) }
+    pub fn is_verbrand(&self, nullifier: &Digest) -> bool {
+        self.nullified.contains(nullifier)
+    }
 
     /// Publieke lidmaatschapscontrole: zit `commitment` met niveau `level` op
     /// positie `index` in een wortel uit het venster? Het niveau is invoer van
     /// de verifieerder, niet iets dat uit de opening volgt.
-    pub fn is_lid(&self, proof: &tree::Proof, index: usize, level: u8, commitment: &Digest, root: &Digest) -> bool {
-        self.acc.verify_at(proof, index, &blad(level, commitment), root)
+    pub fn is_lid(
+        &self,
+        proof: &tree::Proof,
+        index: usize,
+        level: u8,
+        commitment: &Digest,
+        root: &Digest,
+    ) -> bool {
+        self.acc
+            .verify_at(proof, index, &blad(level, commitment), root)
     }
 
     /// Emmer van een positie in de accumulator, voor de kandidatenlijst.
@@ -163,10 +193,29 @@ mod tests {
 
     fn note(level: u8, seed: u8) -> Note {
         let mut s = [0u8; 32];
-        s[..8].copy_from_slice(&[level, seed, level ^ seed, seed, level, seed, level ^ seed, seed]);
+        s[..8].copy_from_slice(&[
+            level,
+            seed,
+            level ^ seed,
+            seed,
+            level,
+            seed,
+            level ^ seed,
+            seed,
+        ]);
         s[8..16].copy_from_slice(&[seed; 8]);
-        for i in 0..24 { s[16 + (i % 16)] ^= (level as u8).wrapping_mul(31).wrapping_add(seed).wrapping_add(i as u8); }
-        Note { level, epoch: 0, owner: [0u8; 64], secret: Secret(s) }
+        for i in 0..24 {
+            s[16 + (i % 16)] ^= (level as u8)
+                .wrapping_mul(31)
+                .wrapping_add(seed)
+                .wrapping_add(i as u8);
+        }
+        Note {
+            level,
+            epoch: 0,
+            owner: [0u8; 64],
+            secret: Secret(s),
+        }
     }
 
     #[test]
@@ -198,7 +247,12 @@ mod tests_blok1 {
     #[test]
     fn blok1_standaard_zes_testen() {
         let mut l = Ledger::new(ChainId([9u8; 32]));
-        l.mint(&Note { level: 4, epoch: 0, owner: [0u8; 64], secret: Secret([7u8; 32]) });
+        l.mint(&Note {
+            level: 4,
+            epoch: 0,
+            owner: [0u8; 64],
+            secret: Secret([7u8; 32]),
+        });
         assert_eq!(l.acc.len(), 1);
     }
 }

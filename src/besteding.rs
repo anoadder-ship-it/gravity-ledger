@@ -133,19 +133,35 @@ impl Record {
     /// Controle 1. Leest zonder paniek, voor elke invoer.
     pub fn from_bytes(b: &[u8]) -> Result<Record, BestedingFout> {
         use BestedingFout::Formaat as F;
-        if b.len() < KOP { return Err(F(Formaat::Lengte)); } // [C1-kop]
+        if b.len() < KOP {
+            return Err(F(Formaat::Lengte));
+        } // [C1-kop]
         let versie = b[0];
-        if versie != VERSIE { return Err(F(Formaat::Versie)); } // [C1-versie]
+        if versie != VERSIE {
+            return Err(F(Formaat::Versie));
+        } // [C1-versie]
         let schema = b[1];
-        if schema != Ed25519::SCHEMA_ID { return Err(F(Formaat::Schema)); } // [C1-schema]
+        if schema != Ed25519::SCHEMA_ID {
+            return Err(F(Formaat::Schema));
+        } // [C1-schema]
         let niveau = b[10];
-        if niveau as usize >= DENOM_LEVELS { return Err(F(Formaat::Niveau)); } // [C1-niveau]
+        if niveau as usize >= DENOM_LEVELS {
+            return Err(F(Formaat::Niveau));
+        } // [C1-niveau]
         let diepte = b[147] as usize;
-        if diepte > MAX_DIEPTE { return Err(F(Formaat::Diepte)); } // [C1-diepte]
-        if b.len() != record_bytes(diepte) { return Err(F(Formaat::Lengte)); } // [C1-lengte]
+        if diepte > MAX_DIEPTE {
+            return Err(F(Formaat::Diepte));
+        } // [C1-diepte]
+        if b.len() != record_bytes(diepte) {
+            return Err(F(Formaat::Lengte));
+        } // [C1-lengte]
 
         let mut pos = 0usize;
-        let mut neem = |n: usize| { let s = &b[pos..pos + n]; pos += n; s };
+        let mut neem = |n: usize| {
+            let s = &b[pos..pos + n];
+            pos += n;
+            s
+        };
         let _ = neem(2);
         let index_in = u64::from_le_bytes(neem(8).try_into().map_err(|_| F(Formaat::Lengte))?);
         let _ = neem(1);
@@ -157,7 +173,19 @@ impl Record {
         let bewijs = Proof::from_bytes(neem(DIGEST_BYTES * diepte)).ok_or(F(Formaat::Lengte))?;
         let c_uit: Digest = neem(64).try_into().map_err(|_| F(Formaat::Lengte))?;
         let handtekening: [u8; 64] = neem(64).try_into().map_err(|_| F(Formaat::Lengte))?;
-        Ok(Record { versie, schema, index_in, niveau, epoch_in, geheim_in, pk, wortel, bewijs, c_uit, handtekening })
+        Ok(Record {
+            versie,
+            schema,
+            index_in,
+            niveau,
+            epoch_in,
+            geheim_in,
+            pk,
+            wortel,
+            bewijs,
+            c_uit,
+            handtekening,
+        })
     }
 }
 
@@ -170,8 +198,18 @@ pub fn nullifier(chain: &ChainId, index_in: u64, c_in: &Digest) -> Digest {
 /// Het getekende bericht: `dsh("GL/besteding/v1", [chain, versie, schema, N,
 /// niveau, C_uit])`, 64 byte. Wortel en bewijs zijn niet getekend; de index
 /// wel, via N.
-pub fn bericht(chain: &ChainId, versie: u8, schema: u8, n: &Digest, niveau: u8, c_uit: &Digest) -> Digest {
-    dsh(b"GL/besteding/v1", &[&chain.0, &[versie], &[schema], n, &[niveau], c_uit])
+pub fn bericht(
+    chain: &ChainId,
+    versie: u8,
+    schema: u8,
+    n: &Digest,
+    niveau: u8,
+    c_uit: &Digest,
+) -> Digest {
+    dsh(
+        b"GL/besteding/v1",
+        &[&chain.0, &[versie], &[schema], n, &[niveau], c_uit],
+    )
 }
 
 /// Wat een geslaagde besteding oplevert.
@@ -192,32 +230,51 @@ impl Ledger {
         let r = Record::from_bytes(record)?;
         // 2. Sleutel inlezen.
         Ed25519::lees_sleutel(&r.pk).map_err(|_| B::OngeldigeSleutel)?; // [C2]
-        // 3. Eigenaar en commitment van de invoer, door de keten uitgerekend.
+                                                                        // 3. Eigenaar en commitment van de invoer, door de keten uitgerekend.
         let owner = owner_hash(Ed25519::SCHEMA, &r.pk);
-        let invoer = Note { level: r.niveau, epoch: r.epoch_in, owner, secret: Secret(r.geheim_in) };
+        let invoer = Note {
+            level: r.niveau,
+            epoch: r.epoch_in,
+            owner,
+            secret: Secret(r.geheim_in),
+        };
         let c_in = invoer.commitment(&self.chain);
         // 4. Wortel in het venster.
-        if !self.acc.accepts_root(&r.wortel) { return Err(B::WortelOnbekend); } // [C4]
-        // 5. Lidmaatschap van blad(niveau, C_in) op index_in.
+        if !self.acc.accepts_root(&r.wortel) {
+            return Err(B::WortelOnbekend);
+        } // [C4]
+          // 5. Lidmaatschap van blad(niveau, C_in) op index_in.
         let index = usize::try_from(r.index_in).map_err(|_| B::GeenLid)?;
-        if !r.bewijs.verify(index, &blad(r.niveau, &c_in), &r.wortel) { return Err(B::GeenLid); } // [C5]
-        // 6. Nullifier.
+        if !r.bewijs.verify(index, &blad(r.niveau, &c_in), &r.wortel) {
+            return Err(B::GeenLid);
+        } // [C5]
+          // 6. Nullifier.
         let n = nullifier(&self.chain, r.index_in, &c_in); // [C6-n]
-        if self.nullified.contains(&n) { return Err(B::Dubbeluitgave); } // [C6]
-        // 7. Handtekening over exact het digest van 64 byte.
+        if self.nullified.contains(&n) {
+            return Err(B::Dubbeluitgave);
+        } // [C6]
+          // 7. Handtekening over exact het digest van 64 byte.
         let m = bericht(&self.chain, r.versie, r.schema, &n, r.niveau, &r.c_uit);
         Ed25519::verifieer(&r.pk, &m, &r.handtekening).map_err(|_| B::Handtekening)?; // [C7]
-        // 8. Emmer van de invoer, en iets besteedbaars erin.
+                                                                                      // 8. Emmer van de invoer, en iets besteedbaars erin.
         let emmer = *self.minted.get(index).ok_or(B::GeenLid)?;
-        if spend::live(&self.buckets, &self.spent, emmer.0, emmer.1).map_err(|_| B::NegatieveEmmer)? == 0 { return Err(B::LegeEmmer); } // [C8]
-        // 9. Toepassen, in één keer.
+        if spend::live(&self.buckets, &self.spent, emmer.0, emmer.1)
+            .map_err(|_| B::NegatieveEmmer)?
+            == 0
+        {
+            return Err(B::LegeEmmer);
+        } // [C8]
+          // 9. Toepassen, in één keer.
         self.nullified.insert(n);
         *self.spent.entry(emmer).or_insert(0) += 1; // [C9-spent]
         let uit = (self.epoch, r.niveau); // [C9-emmer]
         let index_uit = self.acc.push(blad(r.niveau, &r.c_uit));
         self.minted.push(uit);
         *self.buckets.entry(uit).or_insert(0) += 1;
-        Ok(Besteed { nullifier: n, index_uit })
+        Ok(Besteed {
+            nullifier: n,
+            index_uit,
+        })
     }
 }
 
@@ -227,13 +284,23 @@ mod tests {
     use crate::spend::{live, menigte, mint_to_ledger};
     use ed25519_dalek::{Signer, SigningKey};
 
-    fn keten() -> ChainId { ChainId([5u8; 32]) }
+    fn keten() -> ChainId {
+        ChainId([5u8; 32])
+    }
 
     fn munt(sk: &SigningKey, level: u8, epoch: u64, k: u8) -> Note {
         let owner = owner_hash(Ed25519::SCHEMA, &sk.verifying_key().to_bytes());
         let mut s = [0u8; 32];
-        s[0] = k; s[1] = level; s[2] = epoch as u8; s[31] = 0xA5;
-        Note { level, epoch, owner, secret: Secret(s) }
+        s[0] = k;
+        s[1] = level;
+        s[2] = epoch as u8;
+        s[31] = 0xA5;
+        Note {
+            level,
+            epoch,
+            owner,
+            secret: Secret(s),
+        }
     }
 
     fn record(l: &Ledger, sk: &SigningKey, n: &Note, index: usize, c_uit: Digest) -> Vec<u8> {
@@ -241,11 +308,19 @@ mod tests {
         let nf = nullifier(&l.chain, index as u64, &c_in);
         let m = bericht(&l.chain, VERSIE, Ed25519::SCHEMA_ID, &nf, n.level, &c_uit);
         Record {
-            versie: VERSIE, schema: Ed25519::SCHEMA_ID, index_in: index as u64, niveau: n.level,
-            epoch_in: n.epoch, geheim_in: n.secret.0, pk: sk.verifying_key().to_bytes(),
-            wortel: l.root(), bewijs: l.acc.proof(index).unwrap(), c_uit,
+            versie: VERSIE,
+            schema: Ed25519::SCHEMA_ID,
+            index_in: index as u64,
+            niveau: n.level,
+            epoch_in: n.epoch,
+            geheim_in: n.secret.0,
+            pk: sk.verifying_key().to_bytes(),
+            wortel: l.root(),
+            bewijs: l.acc.proof(index).unwrap(),
+            c_uit,
             handtekening: sk.sign(&m).to_bytes(),
-        }.to_bytes()
+        }
+        .to_bytes()
     }
 
     /// Een kale commitment, zonder `blad()` in de boom gezet, is geen lid:
@@ -303,14 +378,30 @@ mod tests {
         let mut l = Ledger::new(keten());
         l.epoch = 3;
         let sk = SigningKey::from_bytes(&[2; 32]);
-        for i in 0..10 { mint_to_ledger(&mut l, &munt(&sk, 8, 3, i)); }
+        for i in 0..10 {
+            mint_to_ledger(&mut l, &munt(&sk, 8, 3, i));
+        }
         assert_eq!(menigte(&l.buckets, 3, 8), 10);
         assert_eq!(live(&l.buckets, &l.spent, 3, 8), Ok(10));
 
-        let r = record(&l, &sk, &munt(&sk, 8, 3, 2), 2, munt(&sk, 8, 3, 77).commitment(&l.chain));
+        let r = record(
+            &l,
+            &sk,
+            &munt(&sk, 8, 3, 2),
+            2,
+            munt(&sk, 8, 3, 77).commitment(&l.chain),
+        );
         l.besteed(&r).unwrap();
-        assert_eq!(menigte(&l.buckets, 3, 8), 11, "opnames hadden met 1 moeten groeien");
-        assert_eq!(live(&l.buckets, &l.spent, 3, 8), Ok(10), "live moet gelijk blijven");
+        assert_eq!(
+            menigte(&l.buckets, 3, 8),
+            11,
+            "opnames hadden met 1 moeten groeien"
+        );
+        assert_eq!(
+            live(&l.buckets, &l.spent, 3, 8),
+            Ok(10),
+            "live moet gelijk blijven"
+        );
 
         mint_to_ledger(&mut l, &munt(&sk, 8, 3, 78));
         assert_eq!(menigte(&l.buckets, 3, 8), 12);

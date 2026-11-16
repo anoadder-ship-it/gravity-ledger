@@ -43,7 +43,12 @@ pub fn live(buckets: &Buckets, spent: &Spents, epoch: u64, level: u8) -> Result<
     let bestedingen = spent.get(&(epoch, level)).copied().unwrap_or(0);
     opnames
         .checked_sub(bestedingen)
-        .ok_or(SpendFout::NegatieveEmmer { epoch, level, opnames, bestedingen })
+        .ok_or(SpendFout::NegatieveEmmer {
+            epoch,
+            level,
+            opnames,
+            bestedingen,
+        })
 }
 
 /// Kandidaten die een waarnemer overhoudt: alle posities in de accumulator die
@@ -57,7 +62,12 @@ pub fn kandidaten(l: &Ledger, epoch: u64, level: u8) -> Vec<usize> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum SpendFout {
     /// Meer bestedingen dan opnames: de tellers zijn beschadigd.
-    NegatieveEmmer { epoch: u64, level: u8, opnames: usize, bestedingen: usize },
+    NegatieveEmmer {
+        epoch: u64,
+        level: u8,
+        opnames: usize,
+        bestedingen: usize,
+    },
 }
 
 #[cfg(test)]
@@ -72,8 +82,15 @@ mod tests {
     }
     fn noot(level: u8, epoch: u64, ki: u8) -> Note {
         let mut s = [0u8; 32];
-        s[0] = level; s[1] = epoch as u8; s[2] = ki;
-        Note { level, epoch, owner: [0u8; 64], secret: Secret(s) }
+        s[0] = level;
+        s[1] = epoch as u8;
+        s[2] = ki;
+        Note {
+            level,
+            epoch,
+            owner: [0u8; 64],
+            secret: Secret(s),
+        }
     }
 
     /// De menigte telt per (epoch, niveau) en de kandidatenlijst is precies die
@@ -81,9 +98,15 @@ mod tests {
     #[test]
     fn menigte_telt_per_emmer() {
         let mut l = Ledger::new(chain());
-        for i in 0..12 { mint_to_ledger(&mut l, &noot(3, 4, i)); }
-        for i in 0..5 { mint_to_ledger(&mut l, &noot(9, 4, i)); }
-        for i in 0..7 { mint_to_ledger(&mut l, &noot(3, 5, i)); }
+        for i in 0..12 {
+            mint_to_ledger(&mut l, &noot(3, 4, i));
+        }
+        for i in 0..5 {
+            mint_to_ledger(&mut l, &noot(9, 4, i));
+        }
+        for i in 0..7 {
+            mint_to_ledger(&mut l, &noot(3, 5, i));
+        }
 
         assert_eq!(menigte(&l.buckets, 4, 3), 12);
         assert_eq!(menigte(&l.buckets, 4, 9), 5);
@@ -105,7 +128,9 @@ mod tests {
         assert_eq!(kandidaten(&een, 1, 2).len(), 1);
 
         let mut vol = Ledger::new(chain());
-        for i in 0..VOL { mint_to_ledger(&mut vol, &noot(2, 1, i as u8)); }
+        for i in 0..VOL {
+            mint_to_ledger(&mut vol, &noot(2, 1, i as u8));
+        }
         assert_eq!(kandidaten(&vol, 1, 2).len(), VOL);
     }
 }

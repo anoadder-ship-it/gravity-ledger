@@ -108,15 +108,17 @@ impl Shape {
         }
 
         for d in 0..DENOM_LEVELS {
-            let split_below =
-                2u64.checked_mul(g(&self.splits, d + 1)).ok_or(Violation::Overflow)?;
+            let split_below = 2u64
+                .checked_mul(g(&self.splits, d + 1))
+                .ok_or(Violation::Overflow)?;
             let aanbod = g(&self.ins, d)
                 .checked_add(split_below)
                 .and_then(|v| v.checked_add(g(&self.merges, d)))
                 .ok_or(Violation::Overflow)?;
 
-            let merge_above =
-                2u64.checked_mul(g(&self.merges, d + 1)).ok_or(Violation::Overflow)?;
+            let merge_above = 2u64
+                .checked_mul(g(&self.merges, d + 1))
+                .ok_or(Violation::Overflow)?;
             let vraag = g(&self.outs, d)
                 .checked_add(g(&self.fee, d))
                 .and_then(|v| v.checked_add(g(&self.splits, d)))
@@ -124,7 +126,11 @@ impl Shape {
                 .ok_or(Violation::Overflow)?;
 
             if aanbod != vraag {
-                return Err(Violation::Imbalance { level: d as u8, aanbod, vraag });
+                return Err(Violation::Imbalance {
+                    level: d as u8,
+                    aanbod,
+                    vraag,
+                });
             }
         }
         Ok(())
@@ -306,8 +312,15 @@ mod tests {
             for b in (0..DENOM_LEVELS).filter(|&b| b != a) {
                 let (aanbod, vraag) = if a < b { (1, 0) } else { (0, 1) };
                 let level = a.min(b) as u8;
-                assert_eq!(vorm(a, b).check(), Err(Violation::Imbalance { level, aanbod, vraag }),
-                           "invoer {a}, uitgang {b}");
+                assert_eq!(
+                    vorm(a, b).check(),
+                    Err(Violation::Imbalance {
+                        level,
+                        aanbod,
+                        vraag
+                    }),
+                    "invoer {a}, uitgang {b}"
+                );
                 geweigerd += 1;
             }
         }

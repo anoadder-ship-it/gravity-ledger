@@ -22,7 +22,10 @@ mod tests {
     #[test]
     #[ignore = "meting — draait alleen met --ignored"]
     fn meet_ladder_en_bewijzen() {
-        println!("verwijzing: digest = {} byte (BLAKE3-XOF, één primitief)", hash::DIGEST_BYTES);
+        println!(
+            "verwijzing: digest = {} byte (BLAKE3-XOF, één primitief)",
+            hash::DIGEST_BYTES
+        );
 
         // Begrensd tot 100.000 bladen; grotere bomen worden niet gemeten.
         for &n in &[1_000usize, 10_000, 100_000] {
@@ -31,7 +34,9 @@ mod tests {
             // van de wortel? Die zijn nu gescheiden — voorheen niet.
             let mut a = tree::Accumulator::new();
             let t = Instant::now();
-            for i in 0..n { a.push(leaf_of(i)); }
+            for i in 0..n {
+                a.push(leaf_of(i));
+            }
             let mint_us = t.elapsed().as_secs_f64() * 1e6 / n as f64;
 
             // Elke getimede lus hieronder telt hoe vaak de uitkomst klopt, en
@@ -47,7 +52,9 @@ mod tests {
             let root = a.root();
             let t2 = Instant::now();
             let mut laatste = [0u8; hash::DIGEST_BYTES];
-            for _ in 0..1000 { laatste = std::hint::black_box(a.root()); }
+            for _ in 0..1000 {
+                laatste = std::hint::black_box(a.root());
+            }
             let root_ns = t2.elapsed().as_secs_f64() * 1e9 / 1000.0;
             assert_eq!(laatste, root, "n={n}: root() gaf een andere wortel");
 
@@ -55,7 +62,10 @@ mod tests {
             // uit de cache) zijn allebei O(log n); hieronder apart gemeten.
             const K: usize = 256;
             let pre: Vec<(usize, tree::Proof)> = (0..K)
-                .map(|s| { let idx = (s * 977) % n; (idx, a.proof(idx).expect("bewijs moet bestaan")) })
+                .map(|s| {
+                    let idx = (s * 977) % n;
+                    (idx, a.proof(idx).expect("bewijs moet bestaan"))
+                })
                 .collect();
             let diepte = pre[0].1.depth();
             let bytes = pre[0].1.size_bytes();
@@ -63,10 +73,18 @@ mod tests {
             let t1 = Instant::now();
             let mut ok = 0usize;
             for _ in 0..40 {
-                for (idx, p) in &pre { if std::hint::black_box(p.verify(*idx, &a.leaves[*idx], &root)) { ok += 1; } }
+                for (idx, p) in &pre {
+                    if std::hint::black_box(p.verify(*idx, &a.leaves[*idx], &root)) {
+                        ok += 1;
+                    }
+                }
             }
             let verif_us = t1.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
-            assert_eq!(ok, 40 * K, "n={n}: niet elk bewijs tegen de huidige wortel slaagde");
+            assert_eq!(
+                ok,
+                40 * K,
+                "n={n}: niet elk bewijs tegen de huidige wortel slaagde"
+            );
 
             let t2 = Instant::now();
             // Eén aanroep kost een fractie van een microseconde; met 256
@@ -77,11 +95,19 @@ mod tests {
             const BOUW_RONDES: usize = 300_000;
             let mut gebouwd = 0usize;
             for _ in 0..BOUW_RONDES {
-                for s in 0..K { if std::hint::black_box(a.proof((s * 977) % n)).is_some() { gebouwd += 1; } }
+                for s in 0..K {
+                    if std::hint::black_box(a.proof((s * 977) % n)).is_some() {
+                        gebouwd += 1;
+                    }
+                }
             }
             let bouw_lus_s = t2.elapsed().as_secs_f64();
             let bouw_us = bouw_lus_s * 1e6 / (BOUW_RONDES * K) as f64;
-            assert_eq!(gebouwd, BOUW_RONDES * K, "n={n}: proof() gaf niet voor elke index een bewijs");
+            assert_eq!(
+                gebouwd,
+                BOUW_RONDES * K,
+                "n={n}: proof() gaf niet voor elke index een bewijs"
+            );
 
             // Het acceptatievenster. Na elke `push` komt de nieuwe wortel in
             // de changelog (`tree::DEFAULT_CHANGELOG` = 64 plaatsen), dus de
@@ -100,13 +126,23 @@ mod tests {
             const BUITEN: usize = tree::DEFAULT_CHANGELOG;
             let idx_oud = |s: usize| (s * 977) % (n - BUITEN);
             let mut b = tree::Accumulator::new();
-            for i in 0..(n - BUITEN) { b.push(leaf_of(i)); }
+            for i in 0..(n - BUITEN) {
+                b.push(leaf_of(i));
+            }
             let root_buiten = b.root();
-            let pre_buiten: Vec<(usize, tree::Proof)> = (0..K).map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap())).collect();
-            for i in (n - BUITEN)..(n - BINNEN) { b.push(leaf_of(i)); }
+            let pre_buiten: Vec<(usize, tree::Proof)> = (0..K)
+                .map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap()))
+                .collect();
+            for i in (n - BUITEN)..(n - BINNEN) {
+                b.push(leaf_of(i));
+            }
             let root_oud = b.root();
-            let pre_oud: Vec<(usize, tree::Proof)> = (0..K).map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap())).collect();
-            for i in (n - BINNEN)..n { b.push(leaf_of(i)); }
+            let pre_oud: Vec<(usize, tree::Proof)> = (0..K)
+                .map(|s| (idx_oud(s), b.proof(idx_oud(s)).unwrap()))
+                .collect();
+            for i in (n - BINNEN)..n {
+                b.push(leaf_of(i));
+            }
             assert_eq!(b.root(), root, "vergelijkingboom moet identiek zijn");
             let onbekend = leaf_of(usize::MAX);
 
@@ -114,10 +150,19 @@ mod tests {
             // vouwen niet naar de huidige. Een weigering hieronder komt dus
             // van het venster, niet van een kapot bewijs.
             for (idx, p) in pre_oud.iter().chain(&pre_buiten) {
-                assert!(!p.verify(*idx, &a.leaves[*idx], &root), "n={n}: oud bewijs vouwt naar de huidige wortel");
+                assert!(
+                    !p.verify(*idx, &a.leaves[*idx], &root),
+                    "n={n}: oud bewijs vouwt naar de huidige wortel"
+                );
             }
-            assert!(pre_oud.iter().all(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root_oud)));
-            assert!(pre_buiten.iter().all(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root_buiten)));
+            assert!(pre_oud
+                .iter()
+                .all(|(idx, p)| p.verify(*idx, &a.leaves[*idx], &root_oud)));
+            assert!(pre_buiten.iter().all(|(idx, p)| p.verify(
+                *idx,
+                &a.leaves[*idx],
+                &root_buiten
+            )));
 
             // `accepts_root` vergelijkt eerst met de huidige wortel en loopt
             // dan de changelog af, oudste vooraan. `root_oud` is de 61e van
@@ -125,13 +170,21 @@ mod tests {
             // scan, dan afwijzing).
             let t3 = Instant::now();
             let mut aanvaard = 0usize;
-            for _ in 0..K { if std::hint::black_box(a.accepts_root(&root_oud)) { aanvaard += 1; } }
+            for _ in 0..K {
+                if std::hint::black_box(a.accepts_root(&root_oud)) {
+                    aanvaard += 1;
+                }
+            }
             let venster_us = t3.elapsed().as_secs_f64() * 1e6 / K as f64;
             assert_eq!(aanvaard, K, "n={n}: wortel binnen het venster geweigerd");
 
             let t5 = Instant::now();
             let mut aanvaard = 0usize;
-            for _ in 0..K { if std::hint::black_box(a.accepts_root(&onbekend)) { aanvaard += 1; } }
+            for _ in 0..K {
+                if std::hint::black_box(a.accepts_root(&onbekend)) {
+                    aanvaard += 1;
+                }
+            }
             let afwijzing_us = t5.elapsed().as_secs_f64() * 1e6 / K as f64;
             assert_eq!(aanvaard, 0, "n={n}: onbekende wortel aanvaard");
 
@@ -140,20 +193,35 @@ mod tests {
             let t4 = Instant::now();
             let mut aanvaard_binnen = 0usize;
             for _ in 0..40 {
-                for (idx, p) in &pre_oud { if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_oud)) { aanvaard_binnen += 1; } }
+                for (idx, p) in &pre_oud {
+                    if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_oud)) {
+                        aanvaard_binnen += 1;
+                    }
+                }
             }
             let met_venster_us = t4.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
-            assert_eq!(aanvaard_binnen, 40 * K, "n={n}: waar bewijs binnen het venster geweigerd");
+            assert_eq!(
+                aanvaard_binnen,
+                40 * K,
+                "n={n}: waar bewijs binnen het venster geweigerd"
+            );
 
             // Bewust geweigerd: een waar bewijs tegen een echte wortel die
             // net uit het venster is gevallen.
             let t6 = Instant::now();
             let mut aanvaard_buiten = 0usize;
             for _ in 0..40 {
-                for (idx, p) in &pre_buiten { if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_buiten)) { aanvaard_buiten += 1; } }
+                for (idx, p) in &pre_buiten {
+                    if std::hint::black_box(a.verify_at(p, *idx, &a.leaves[*idx], &root_buiten)) {
+                        aanvaard_buiten += 1;
+                    }
+                }
             }
             let buiten_us = t6.elapsed().as_secs_f64() * 1e6 / (40 * K) as f64;
-            assert_eq!(aanvaard_buiten, 0, "n={n}: waar bewijs buiten het venster aanvaard");
+            assert_eq!(
+                aanvaard_buiten, 0,
+                "n={n}: waar bewijs buiten het venster aanvaard"
+            );
 
             println!(
                 "n={:>7} | MINT {:>6.2} µs | WORTEL {:>6.0} ns (O(1)) | bewijs {} byte (diepte {}) | VERIFIEREN {:>5.2} µs | VENSTER (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | BUITEN (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | venster scan {:>6.3} µs | afwijzing {:>6.3} µs | BEWIJS MAKEN {:>7.3} µs ({} aanroepen, lus {:.2} s) | correct {}/{}",
@@ -164,12 +232,19 @@ mod tests {
 
         // `Shape::check` over 33 niveaus; `Ledger::besteed` roept hem niet aan.
         let mut s = conservation::Shape::default();
-        s.ins[20] = 1_000; s.splits[20] = 500; s.outs[20] = 500; s.outs[19] = 1_000;
+        s.ins[20] = 1_000;
+        s.splits[20] = 500;
+        s.outs[20] = 500;
+        s.outs[19] = 1_000;
         assert_eq!(s.check(), Ok(()));
         let t = Instant::now();
-        for _ in 0..2_000_000 { std::hint::black_box(s.check()).unwrap(); }
-        println!("behoud-controle: {:.0} ns per controle over 33 niveaus",
-                 t.elapsed().as_secs_f64() * 1e9 / 2_000_000.0);
+        for _ in 0..2_000_000 {
+            std::hint::black_box(s.check()).unwrap();
+        }
+        println!(
+            "behoud-controle: {:.0} ns per controle over 33 niveaus",
+            t.elapsed().as_secs_f64() * 1e9 / 2_000_000.0
+        );
     }
 
     /// De PQ-vloer: wat kost één post-kwantum handtekening, in bytes en tijd?
@@ -184,7 +259,11 @@ mod tests {
         let boodschap = b"gravity-ledger: besteding van een noot";
         println!("ter vergelijking: Merkle-lidmaatschapsbewijs bij 100k bladeren = 1088 byte (64 byte per niveau, stap 6)");
 
-        for (naam, mode) in [("ML-DSA-44", ML_DSA_44), ("ML-DSA-65", ML_DSA_65), ("ML-DSA-87", ML_DSA_87)] {
+        for (naam, mode) in [
+            ("ML-DSA-44", ML_DSA_44),
+            ("ML-DSA-65", ML_DSA_65),
+            ("ML-DSA-87", ML_DSA_87),
+        ] {
             let mode: DilithiumMode = mode;
             let mut seed = [0u8; 32];
             seed[0] = naam.len() as u8;
@@ -195,19 +274,34 @@ mod tests {
             let sig_bytes = sig.as_bytes().len();
 
             // Correctheid: geldige signatuur moet doorlopen, vervalsing niet.
-            assert!(DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode), "geldig bewijs geweigerd");
-            assert!(!DilithiumKeyPair::verify(&pk, &sig, b"andere boodschap", b"", mode), "vervalste boodschap geaccepteerd");
+            assert!(
+                DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode),
+                "geldig bewijs geweigerd"
+            );
+            assert!(
+                !DilithiumKeyPair::verify(&pk, &sig, b"andere boodschap", b"", mode),
+                "vervalste boodschap geaccepteerd"
+            );
 
             const N: usize = 30;
             let t = Instant::now();
-            for _ in 0..N { std::hint::black_box(kp.sign(boodschap, b"").unwrap()); }
+            for _ in 0..N {
+                std::hint::black_box(kp.sign(boodschap, b"").unwrap());
+            }
             let sign_us = t.elapsed().as_secs_f64() * 1e6 / N as f64;
 
             let t2 = Instant::now();
             let mut geldig = 0usize;
-            for _ in 0..N { if std::hint::black_box(DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode)) { geldig += 1; } }
+            for _ in 0..N {
+                if std::hint::black_box(DilithiumKeyPair::verify(&pk, &sig, boodschap, b"", mode)) {
+                    geldig += 1;
+                }
+            }
             let verif_us = t2.elapsed().as_secs_f64() * 1e6 / N as f64;
-            assert_eq!(geldig, N, "{naam}: geldige signatuur in de meting geweigerd");
+            assert_eq!(
+                geldig, N,
+                "{naam}: geldige signatuur in de meting geweigerd"
+            );
 
             println!(
                 "{:<9} | publieke sleutel {:>5} byte | signatuur {:>5} byte | signer {:>7.0} µs | verifiëren {:>6.0} µs",
@@ -231,30 +325,54 @@ mod tests {
         // logn is log2(n): 9 -> Falcon-512 (FN-DSA level 1), 10 -> Falcon-1024.
         for logn in [9u32, 10] {
             let seed = [logn as u8; 32];
-            let kp = FnDsaKeyPair::generate_deterministic(&seed, logn).expect("sleutelpaar genereren");
+            let kp =
+                FnDsaKeyPair::generate_deterministic(&seed, logn).expect("sleutelpaar genereren");
             let pk = kp.public_key().to_vec();
 
-            let sig = kp.sign(boodschap, &DomainSeparation::None).expect("signeren");
+            let sig = kp
+                .sign(boodschap, &DomainSeparation::None)
+                .expect("signeren");
             let sig_bytes = sig.to_bytes().len();
 
             // Correctheid: geldige signatuur moet aanvaard worden, vervalsing niet.
-            assert!(FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None).is_ok(),
-                    "geldige signatuur verworpen");
-            assert!(FnDsaSignature::verify(sig.to_bytes(), &pk, b"andere boodschap", &DomainSeparation::None).is_err(),
-                    "vervalste boodschap aanvaard");
+            assert!(
+                FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None)
+                    .is_ok(),
+                "geldige signatuur verworpen"
+            );
+            assert!(
+                FnDsaSignature::verify(
+                    sig.to_bytes(),
+                    &pk,
+                    b"andere boodschap",
+                    &DomainSeparation::None
+                )
+                .is_err(),
+                "vervalste boodschap aanvaard"
+            );
 
             const N: usize = 30;
             let t = Instant::now();
-            for _ in 0..N { std::hint::black_box(kp.sign(boodschap, &DomainSeparation::None).unwrap()); }
+            for _ in 0..N {
+                std::hint::black_box(kp.sign(boodschap, &DomainSeparation::None).unwrap());
+            }
             let sign_us = t.elapsed().as_secs_f64() * 1e6 / N as f64;
 
             let t2 = Instant::now();
             let mut geldig = 0usize;
             for _ in 0..N {
-                if std::hint::black_box(FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None).is_ok()) { geldig += 1; }
+                if std::hint::black_box(
+                    FnDsaSignature::verify(sig.to_bytes(), &pk, boodschap, &DomainSeparation::None)
+                        .is_ok(),
+                ) {
+                    geldig += 1;
+                }
             }
             let verif_us = t2.elapsed().as_secs_f64() * 1e6 / N as f64;
-            assert_eq!(geldig, N, "logn={logn}: geldige signatuur in de meting geweigerd");
+            assert_eq!(
+                geldig, N,
+                "logn={logn}: geldige signatuur in de meting geweigerd"
+            );
 
             println!(
                 "{:<12} | publieke sleutel {:>5} byte | signatuur {:>4} byte | signer {:>7.0} µs | verifiëren {:>6.0} µs",
@@ -281,29 +399,51 @@ mod tests {
         let noot = |i: usize| -> Note {
             let mut sec = [0u8; 32];
             sec[..8].copy_from_slice(&(i as u64).to_le_bytes());
-            Note { level: 7, epoch: 0, owner, secret: Secret(sec) }
+            Note {
+                level: 7,
+                epoch: 0,
+                owner,
+                secret: Secret(sec),
+            }
         };
 
         for &n in &[1_000usize, 10_000, 100_000] {
             let mut l = Ledger::new(chain.clone());
-            for i in 0..n { spend::mint_to_ledger(&mut l, &noot(i)); }
+            for i in 0..n {
+                spend::mint_to_ledger(&mut l, &noot(i));
+            }
             // Alle records wijzen naar de wortel van vóór de eerste besteding;
             // elke besteding voegt een wortel toe, dus K blijft binnen het venster (64).
             const K: usize = 60;
-            let records: Vec<Vec<u8>> = (0..K).map(|s| {
-                let i = (s * 977) % n;
-                let c_in = noot(i).commitment(&chain);
-                let c_uit = noot(n + i).commitment(&chain);
-                let nf = nullifier(&chain, i as u64, &c_in);
-                let m = bericht(&chain, VERSIE, Ed25519::SCHEMA_ID, &nf, 7, &c_uit);
-                Record { versie: VERSIE, schema: Ed25519::SCHEMA_ID, index_in: i as u64, niveau: 7, epoch_in: 0,
-                         geheim_in: noot(i).secret.0, pk, wortel: l.root(), bewijs: l.acc.proof(i).unwrap(),
-                         c_uit, handtekening: sk.sign(&m).to_bytes() }.to_bytes()
-            }).collect();
+            let records: Vec<Vec<u8>> = (0..K)
+                .map(|s| {
+                    let i = (s * 977) % n;
+                    let c_in = noot(i).commitment(&chain);
+                    let c_uit = noot(n + i).commitment(&chain);
+                    let nf = nullifier(&chain, i as u64, &c_in);
+                    let m = bericht(&chain, VERSIE, Ed25519::SCHEMA_ID, &nf, 7, &c_uit);
+                    Record {
+                        versie: VERSIE,
+                        schema: Ed25519::SCHEMA_ID,
+                        index_in: i as u64,
+                        niveau: 7,
+                        epoch_in: 0,
+                        geheim_in: noot(i).secret.0,
+                        pk,
+                        wortel: l.root(),
+                        bewijs: l.acc.proof(i).unwrap(),
+                        c_uit,
+                        handtekening: sk.sign(&m).to_bytes(),
+                    }
+                    .to_bytes()
+                })
+                .collect();
             let diepte = l.acc.proof(0).unwrap().depth();
             assert_eq!(records[0].len(), record_bytes(diepte));
             let t = Instant::now();
-            for r in &records { l.besteed(r).expect("geldige besteding geweigerd"); }
+            for r in &records {
+                l.besteed(r).expect("geldige besteding geweigerd");
+            }
             let us = t.elapsed().as_secs_f64() * 1e6 / K as f64;
             println!("n={:>7} | record {} byte (diepte {}) | +~200 overhead: {} van 4096 | besteed {:.1} µs ({} records)",
                      n, records[0].len(), diepte, records[0].len() + 200, us, K);
