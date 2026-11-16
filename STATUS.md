@@ -469,9 +469,11 @@ onafhankelijk geauditeerd te zijn en had CVE-2026-24850 / GHSA-5x2r-hc65-25f9
 `dilithium-rs`. Er was dus niets te upgraden — er stond geen `ml-dsa` in
 `Cargo.toml` noch in de lockfile. Bewust niet toegevoegd.
 
-**Aanbevolen voor de signatuur-laag: hybride FN-DSA (Falcon) + Ed25519.** Een
-fout in één van beide laat de transactie dan nog klassiek of post-kwantum
-beveiligd.
+**Voornemen voor de signatuur-laag (niet gebouwd): hybride FN-DSA (Falcon) +
+Ed25519.** De gedachte is dat een fout in één van beide de andere
+handtekening laat staan. Er is geen code voor; de besteding gebruikt alleen
+Ed25519 (sectie 1), en welke bescherming zo'n combinatie geeft, is niet
+uitgewerkt of onderzocht.
 
 ---
 
