@@ -306,8 +306,10 @@ de 64 plaatsen in de scan; andere posities niet. De vorige uitspraak hier
 verificatie mat; zie `docs/metingen.md`.
 
 Caveats: de tijden zijn release-builds op één machine, 30 herhalingen voor PQ.
-ML-DSA-tekentijden zijn variabel door afwijzingsbemonstering — dat is een
-eigenschap van het algoritme, geen meetfout, en het telt mee bij harde
+De tijden van ML-DSA wisselden sterk tussen de runs. De oorzaak is niet
+onderzocht: mogelijk de kern waarop de meting toevallig draaide (snelle en
+zuinige kernen, threads niet vastgezet), mogelijk afwijzingsbemonstering bij
+het tekenen. Komt de spreiding uit het algoritme, dan telt ze mee bij harde
 bloktijd-deadlines.
 
 ---

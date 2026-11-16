@@ -97,11 +97,14 @@ Waardebehoud (`Shape::check` over 33 niveaus): 19 ns in alle drie de runs.
 | ML-DSA-65 | 191–395 µs | 48–112 µs |
 | ML-DSA-87 | 221–307 µs | 80–81 µs |
 
-De tekentijd van ML-DSA wisselt ook door het algoritme zelf
-(afwijzingsbemonstering): een handtekening kan meer pogingen nodig hebben. Daarom
-is ML-DSA-87 in een van de drie runs sneller dan ML-DSA-65. De verificatietijden van
-ML-DSA-44 en -65 lagen in één van de drie runs ruim twee keer hoger dan in de
-andere twee; de oorzaak daarvan is niet vastgesteld.
+De tekentijden van ML-DSA wisselen sterk tussen de runs, en ML-DSA-87 was in
+een van de drie runs sneller dan ML-DSA-65. De verificatietijden van ML-DSA-44
+en -65 lagen in één van de drie runs ruim twee keer hoger dan in de andere
+twee. De oorzaak van deze spreiding is niet onderzocht. Mogelijk speelt mee op
+welke kern de meting toevallig draaide (de machine heeft 10 snelle en 10
+zuinige kernen, en de threads zijn niet vastgezet; zie boven); mogelijk ook
+afwijzingsbemonstering bij het tekenen, waardoor een handtekening meer pogingen
+kan vragen.
 
 ## Maten (vast)
 
