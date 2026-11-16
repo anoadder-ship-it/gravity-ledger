@@ -18,7 +18,8 @@ snelle of een zuinige kern laten lopen. Dat verklaart een deel van de spreiding.
 
 Alle tijden in dit document komen uit dezelfde drie runs van 2026-11-16, met
 de code van `src/bench.rs` zoals die sindsdien is. De vorige versie van dit
-document (metingen van 2026-11-13) staat in de geschiedenis van de repo. Ook
+document (metingen van 2026-11-13) is de versie in commit `54ed7b8`
+(`git show 54ed7b8:docs/metingen.md`). Ook
 de kolommen die toen goed gemeten waren, zijn opnieuw gemeten en niet
 overgenomen: de getimede lussen tellen sinds 2026-11-16 hun uitkomsten, dus
 de oude getallen komen van andere code, en zo staat er één meetsessie in het
@@ -67,7 +68,8 @@ Wat de kolommen meten:
   plaatsen, dan weigering.
 
 **De vorige versie van de kolom "verifiëren met oudere wortel in het venster"
-(2026-11-13: 1,99–2,05 / 2,84–2,95 / 3,62–4,61 µs) was ongeldig.** Die meting
+was ongeldig.** De oude tabel staat in de versie van dit bestand in commit
+`54ed7b8`; de getallen van die kolom zijn hier bewust niet overgenomen. Die meting
 maakte de bewijzen tegen de huidige wortel en controleerde ze met `verify_at`
 tegen een wortel van 3 bladen terug. Dan vouwt geen enkel bewijs naar die
 wortel: 0 van de 256 controles slaagden, bij alle drie de boomgroottes

@@ -214,10 +214,15 @@ in `docs/metingen.md`.
 **2.1 Eén primitief, 64 byte digest.**
 Eerste versie: handgeschreven SHA-256 (verwijderd — geen eigen cryptografie).
 Tweede versie: `BLAKE3-256 ‖ SHA3-512`, 96 byte, "moet beide breken". Dat was
-onnodig: de kwantum-marge (BHT geeft ~n/3 bits) vraagt om een *bredere* output,
-niet om twee functies. BLAKE3-XOF op 64 byte geeft dezelfde ~170-bit marge met
-één afhankelijkheid en 33% kleinere bewijzen. Echte scheiding zit in
-domeinscheiding, niet in het stapelen van primitieven.
+onnodig. De bekende kwantum-botsingsaanval van Brassard, Høyer en Tapp (BHT)
+vindt bij een hash met n bit uitvoer een botsing met ongeveer 2^(n/3)
+bevragingen: voor n = 256 ongeveer 2^85 (256/3 ≈ 85,3), voor n = 512 ongeveer
+2^171 (512/3 ≈ 170,7). Volgens die rekensom vraagt een grotere marge om een
+*bredere* output, niet om twee functies; voor BLAKE3-XOF op 64 byte geeft de
+som ongeveer 2^171, met één afhankelijkheid en 33% kleinere bewijzen. Dit is een rekensom op
+een algemene grens van die ene aanval, geen bewijs en geen meting; deze repo
+bevat geen veiligheidsbewijs. Echte scheiding zit in domeinscheiding, niet in
+het stapelen van primitieven.
 
 **2.2 Index-gebonden bladeren.**
 Zonder index-binding had mijn eigen boom twee echte gaten (beide aangetoond met
@@ -322,8 +327,10 @@ Toch liften we er niet op, en de reden staat in hun eigen afhankelijkheden:
 
 Onze bindende commitment is precies dát wat niet verwaterd mag worden: een
 botsing in de boom is nieuw geld uit het niets. Bij 32-byte knooppunten is dat
-klassiek netjes, maar onder BHT ~85 bit — de zwakte die eruit gehaald was door
-naar 64-byte BLAKE3-XOF-knooppunten te gaan. En een SNARK met setup importeren
+klassiek netjes, maar volgens de BHT-grens uit 2.1 (ongeveer 2^(n/3)
+bevragingen) is een botsing bij 256 bit te vinden met ongeveer 2^85 — de reden
+om naar 64-byte BLAKE3-XOF-knooppunten te gaan (ongeveer 2^171). Ook dit is een
+rekensom op een algemene grens, geen bewijs en geen meting. En een SNARK met setup importeren
 in een project waarvan het bestaansrecht is dat het géén SNARK nodig heeft, is
 het doel opofferen aan het middel.
 

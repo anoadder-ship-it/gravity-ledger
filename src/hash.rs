@@ -4,14 +4,17 @@
 //! onafhankelijke audit is niet vastgesteld. De keten-hash is BLAKE3 extended
 //! naar **64 byte** via de XOF.
 //!
-//! **Waarom 64 byte.** Onder BHT-aanvallen geeft een hash van n bit ongeveer
-//! n/3 bits botsingsvastheid. Bij 256 bit is dat ~85 bit — te weinig voor een
-//! systeem waarin een botsing geld uit het niets betekent. Bij 512 bit is het
-//! ~170 bit. Daarom 64 byte, niet 32.
+//! **Waarom 64 byte.** De bekende kwantum-botsingsaanval van Brassard, Høyer
+//! en Tapp (BHT) vindt bij een hash met n bit uitvoer een botsing met ongeveer
+//! 2^(n/3) bevragingen. Voor n = 256 is dat ongeveer 2^85 (256/3 ≈ 85,3), voor
+//! n = 512 ongeveer 2^171 (512/3 ≈ 170,7). 2^85 vonden we te weinig voor een
+//! systeem waarin een botsing geld uit het niets betekent. Daarom 64 byte,
+//! niet 32. Dit is een rekensom op een algemene grens van die ene aanval, geen
+//! bewijs en geen meting; deze repo bevat geen veiligheidsbewijs.
 //!
 //! **Waarom één primitief.** Ik had hier eerst `BLAKE3-256 ‖ SHA3-512` staan
-//! (96 byte) als "moet beide breken". Dat was onnodig: dezelfde quantummarge
-//! krijg je met één functie en een bredere output, tegen 33%
+//! (96 byte) als "moet beide breken". Dat was onnodig: voor dezelfde rekensom
+//! volstaat één functie met een bredere output, tegen 33%
 //! kleinere bewijzen en één afhankelijkheid minder. Echte scheiding zit in
 //! domeinscheiding (`dsh`), niet in het stapelen van hashes — de reële bugs in
 //! dit soort systemen zitten in die scheiding, niet in de primitieven.
