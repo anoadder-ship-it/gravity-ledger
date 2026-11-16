@@ -14,10 +14,13 @@ ze volgen uit het formaat en waren in alle drie de runs gelijk.
 | commando | `cargo test --release -- --ignored --nocapture` (hier met `--offline --test-threads=1`) |
 
 De threads zijn niet aan een kern vastgezet; de planner kan een meting op een
-snelle of een zuinige kern laten lopen. Dat verklaart een deel van de spreiding.
+snelle of een zuinige kern laten lopen. Dat kan een deel van de spreiding
+verklaren; onderzocht is dat niet.
 
-Alle tijden in dit document komen uit dezelfde drie runs van 2026-11-16, met
-de code van `src/bench.rs` zoals die sindsdien is. De vorige versie van dit
+Alle tijden in dit document komen uit dezelfde drie runs: de tweede meetronde
+van 2026-11-16, gedraaid nadat het aantal herhalingen voor "bewijs maken" was
+verhoogd (zie hieronder). De eerste ronde van die dag, met 256 aanroepen voor
+"bewijs maken", staat in commit `c4565cb`. De vorige versie van dit
 document (metingen van 2026-11-13) is de versie in commit `54ed7b8`
 (`git show 54ed7b8:docs/metingen.md`). Ook
 de kolommen die toen goed gemeten waren, zijn opnieuw gemeten en niet
@@ -34,7 +37,7 @@ De metingen staan in `src/bench.rs`:
 
 | meting | wat | herhalingen per getal |
 |---|---|---|
-| `meet_ladder_en_bewijzen` | accumulator bij 1.000, 10.000 en 100.000 bladen; waardebehoud | mint: gemiddeld over n opnames; wortel: 1.000; verifiëren, in het venster en buiten het venster: elk 40 × 256 bewijzen; bewijs maken, vensterscan en afwijzing: 256; behoud: 2.000.000 |
+| `meet_ladder_en_bewijzen` | accumulator bij 1.000, 10.000 en 100.000 bladen; waardebehoud | mint: gemiddeld over n opnames; wortel: 1.000; verifiëren, in het venster en buiten het venster: elk 40 × 256 bewijzen; bewijs maken: 300.000 × 256 = 76.800.000 aanroepen (een lus van 2,34–6,01 s); vensterscan en afwijzing: 256; behoud: 2.000.000 |
 | `meet_besteding` | één zichtbare besteding (`Ledger::besteed`) bij 1.000, 10.000 en 100.000 bladen | 60 records |
 | `meet_pq_vloer` | ML-DSA-44, -65 en -87 (`dilithium-rs`, dev-afhankelijkheid) | 30 keer tekenen en 30 keer verifiëren |
 | `meet_falcon_vloer` | FN-DSA-512 en -1024 (`falcon-rs`, dev-afhankelijkheid) | 30 keer tekenen en 30 keer verifiëren |
@@ -45,9 +48,9 @@ De metingen staan in `src/bench.rs`:
 
 | bladen | mint | wortel | verifiëren | in het venster | buiten het venster (geweigerd) | bewijs maken | vensterscan | afwijzing buiten het venster |
 |---|---|---|---|---|---|---|---|---|
-| 1.000 | 1,89–3,49 µs | 3–6 ns | 1,96–3,09 µs | 2,03–2,04 µs | 2,04 µs | 0,03–0,05 µs | 76–77 ns | 79–80 ns |
-| 10.000 | 2,51–2,52 µs | 3 ns | 2,68 µs | 2,77 µs | 2,77–2,79 µs | 0,05 µs | 76 ns | 79 ns |
-| 100.000 | 3,16–3,18 µs | 3 ns | 3,23 µs | 3,31–3,36 µs | 3,31–3,32 µs | 0,12–0,14 µs | 78–79 ns | 79–80 ns |
+| 1.000 | 1,99–2,01 µs | 3 ns | 1,99–2,01 µs | 2,09–2,12 µs | 2,09–2,10 µs | 30–31 ns | 80–90 ns | 81–93 ns |
+| 10.000 | 2,64–2,66 µs | 3–4 ns | 2,74–2,75 µs | 2,81–2,84 µs | 2,82–2,84 µs | 41 ns | 84–85 ns | 79–81 ns |
+| 100.000 | 3,33–3,45 µs | 3–4 ns | 3,30–3,32 µs | 3,36–3,45 µs | 3,38–3,42 µs | 78 ns | 81–91 ns | 79–81 ns |
 
 Wat de kolommen meten:
 
@@ -60,6 +63,10 @@ Wat de kolommen meten:
 - **buiten het venster (geweigerd)**: hetzelfde, met bewijs en wortel van 64
   bladen terug. Het bewijs is waar tegen die wortel (dat wordt vooraf geëist),
   maar de wortel is uit het venster gevallen; alle 10.240 controles weigeren.
+- **bewijs maken**: `Accumulator::proof` voor dezelfde 256 posities, 300.000
+  keer achter elkaar; alle 76.800.000 aanroepen geven een bewijs. Tot de
+  tweede ronde van 2026-11-16 waren het 256 aanroepen: een lus van ongeveer
+  8 tot 36 µs (256 × 0,03–0,14 µs, de uitkomsten van de eerste ronde).
 - **vensterscan**: alleen `accepts_root` voor de wortel van 3 bladen terug.
   De functie vergelijkt eerst met de huidige wortel en loopt dan de 64 wortels
   van de changelog af, oudste vooraan; deze wortel is de 61e.
@@ -77,30 +84,33 @@ wortel: 0 van de 256 controles slaagden, bij alle drie de boomgroottes
 de kortsluiting van `&&` nooit aangeroepen. De meting mat dus hoe lang een
 mislukte vouwing duurt.
 
-Waardebehoud (`Shape::check` over 33 niveaus): 19 ns in alle drie de runs.
+Waardebehoud (`Shape::check` over 33 niveaus): 20 ns in alle drie de runs.
 
 ### Besteding (`meet_besteding`)
 
 | bladen | tijd per besteding |
 |---|---|
-| 1.000 | 42,1–79,2 µs |
-| 10.000 | 42,8–42,9 µs |
-| 100.000 | 44,1–44,2 µs |
+| 1.000 | 44,4–80,1 µs |
+| 10.000 | 44,1–45,3 µs |
+| 100.000 | 46,5–47,3 µs |
 
 ### Post-kwantumhandtekeningen (`meet_pq_vloer`, `meet_falcon_vloer`)
 
 | schema | tekenen | verifiëren |
 |---|---|---|
-| FN-DSA-512 | 260–262 µs | 25 µs |
-| FN-DSA-1024 | 528–530 µs | 49 µs |
-| ML-DSA-44 | 102–267 µs | 30–69 µs |
-| ML-DSA-65 | 191–395 µs | 48–112 µs |
-| ML-DSA-87 | 221–307 µs | 80–81 µs |
+| FN-DSA-512 | 268–491 µs | 27–52 µs |
+| FN-DSA-1024 | 538–557 µs | 50–53 µs |
+| ML-DSA-44 | 146–281 µs | ≈ 30–80 µs * |
+| ML-DSA-65 | ≈ 200–410 µs * | ≈ 50–120 µs * |
+| ML-DSA-87 | 209–290 µs | 82–84 µs |
 
-De tekentijden van ML-DSA wisselen sterk tussen de runs, en ML-DSA-87 was in
-een van de drie runs sneller dan ML-DSA-65. De verificatietijden van ML-DSA-44
-en -65 lagen in één van de drie runs ruim twee keer hoger dan in de andere
-twee. De oorzaak van deze spreiding is niet onderzocht. Mogelijk speelt mee op
+\* Hoogste waarde meer dan twee keer de laagste; daarom afgerond op
+tientallen.
+
+De tijden van ML-DSA wisselen sterk tussen de runs. ML-DSA-87 tekende in twee
+van de drie runs sneller dan ML-DSA-65. De verificatietijden van ML-DSA-44 en
+-65 lagen in twee van de drie runs ruim twee keer hoger dan in de derde. Ook
+FN-DSA-512 was in één run bijna twee keer zo snel als in de andere twee. De oorzaak van deze spreiding is niet onderzocht. Mogelijk speelt mee op
 welke kern de meting toevallig draaide (de machine heeft 10 snelle en 10
 zuinige kernen, en de threads zijn niet vastgezet; zie boven); mogelijk ook
 afwijzingsbemonstering bij het tekenen, waardoor een handtekening meer pogingen

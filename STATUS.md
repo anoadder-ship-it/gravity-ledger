@@ -292,15 +292,14 @@ met FN-DSA-512 in plaats van Ed25519 (pk 897 + handtekening in plaats van
 15 september 2026 (epoch 1035)). Bij 2^32 bladeren is dat 3.934 of 3.791 byte,
 plus een overhead die niet gemeten is (open punt 12).
 
-**Acceptatievenster (concurrency):** gemeten op 2026-11-16, drie runs
-(`docs/metingen.md`). Een waar bewijs tegen de wortel van 3 bladen terug werd
-in alle drie de runs aanvaard (10.240 van de 10.240 controles per
-boomgrootte); een waar bewijs tegen de wortel van 64 bladen terug werd steeds
-geweigerd. Bij 10.000 en 100.000 bladen kostte verificatie in het venster per
-run 0,08 tot 0,13 µs meer dan verificatie tegen de huidige wortel (2,77 tegen
-2,68 µs, en 3,31–3,36 tegen 3,23 µs); `accepts_root` alleen kostte 76–79 ns.
-Bij 1.000 bladen is de spreiding tussen de runs groter dan dat verschil, dus
-daar is het niet vast te stellen. Gemeten is alleen een wortel op de 61e van
+**Acceptatievenster (concurrency):** gemeten op 2026-11-16, drie runs (de
+tweede meetronde van die dag, `docs/metingen.md`). Een waar bewijs tegen de
+wortel van 3 bladen terug werd in alle drie de runs aanvaard (10.240 van de
+10.240 controles per boomgrootte); een waar bewijs tegen de wortel van 64
+bladen terug werd steeds geweigerd. Verificatie in het venster kostte per run
+0,04 tot 0,15 µs meer dan verificatie tegen de huidige wortel (1.000 bladen:
+2,09–2,12 tegen 1,99–2,01 µs; 10.000: 2,81–2,84 tegen 2,74–2,75 µs; 100.000:
+3,36–3,45 tegen 3,30–3,32 µs); `accepts_root` alleen kostte 80–91 ns. Gemeten is alleen een wortel op de 61e van
 de 64 plaatsen in de scan; andere posities niet. De vorige uitspraak hier
 ("kost weinig meer") steunde op een ongeldige meting die een altijd falende
 verificatie mat; zie `docs/metingen.md`.

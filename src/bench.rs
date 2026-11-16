@@ -69,10 +69,18 @@ mod tests {
             assert_eq!(ok, 40 * K, "n={n}: niet elk bewijs tegen de huidige wortel slaagde");
 
             let t2 = Instant::now();
+            // Eén aanroep kost een fractie van een microseconde; met 256
+            // aanroepen duurde de lus ongeveer 8 tot 36 µs (256 × 0,03–0,14 µs,
+            // runs van 2026-11-16), te kort voor een stabiel getal. Daarom BOUW_RONDES × K aanroepen, zodat de lus ruim langer
+            // dan een seconde duurt; de duur wordt mee afgedrukt.
+            const BOUW_RONDES: usize = 300_000;
             let mut gebouwd = 0usize;
-            for s in 0..K { if std::hint::black_box(a.proof((s * 977) % n)).is_some() { gebouwd += 1; } }
-            let bouw_us = t2.elapsed().as_secs_f64() * 1e6 / K as f64;
-            assert_eq!(gebouwd, K, "n={n}: proof() gaf niet voor elke index een bewijs");
+            for _ in 0..BOUW_RONDES {
+                for s in 0..K { if std::hint::black_box(a.proof((s * 977) % n)).is_some() { gebouwd += 1; } }
+            }
+            let bouw_lus_s = t2.elapsed().as_secs_f64();
+            let bouw_us = bouw_lus_s * 1e6 / (BOUW_RONDES * K) as f64;
+            assert_eq!(gebouwd, BOUW_RONDES * K, "n={n}: proof() gaf niet voor elke index een bewijs");
 
             // Het acceptatievenster. Na elke `push` komt de nieuwe wortel in
             // de changelog (`tree::DEFAULT_CHANGELOG` = 64 plaatsen), dus de
@@ -147,9 +155,9 @@ mod tests {
             assert_eq!(aanvaard_buiten, 0, "n={n}: waar bewijs buiten het venster aanvaard");
 
             println!(
-                "n={:>7} | MINT {:>6.2} µs | WORTEL {:>6.0} ns (O(1)) | bewijs {} byte (diepte {}) | VERIFIEREN {:>5.2} µs | VENSTER (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | BUITEN (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | venster scan {:>6.3} µs | afwijzing {:>6.3} µs | BEWIJS MAKEN {:>7.2} µs | correct {}/{}",
+                "n={:>7} | MINT {:>6.2} µs | WORTEL {:>6.0} ns (O(1)) | bewijs {} byte (diepte {}) | VERIFIEREN {:>5.2} µs | VENSTER (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | BUITEN (wortel {} bladen terug) {:>5.2} µs, aanvaard {}/{} | venster scan {:>6.3} µs | afwijzing {:>6.3} µs | BEWIJS MAKEN {:>7.3} µs ({} aanroepen, lus {:.2} s) | correct {}/{}",
                 n, mint_us, root_ns, bytes, diepte, verif_us, BINNEN, met_venster_us, aanvaard_binnen, 40 * K,
-                BUITEN, buiten_us, aanvaard_buiten, 40 * K, venster_us, afwijzing_us, bouw_us, ok, 40 * K
+                BUITEN, buiten_us, aanvaard_buiten, 40 * K, venster_us, afwijzing_us, bouw_us, BOUW_RONDES * K, bouw_lus_s, ok, 40 * K
             );
         }
 
