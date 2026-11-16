@@ -106,6 +106,13 @@ impl Note {
     /// dus op een onvoorspelbaar geheim en op de aannames over de hash. Hoe een
     /// auditor een tag herkent, staat niet in de code: er is geen audit-laag,
     /// en deze functie wordt alleen in de tests van dit bestand aangeroepen.
+    ///
+    /// Randgeval: een zichtbaar bestedingsrecord bevat het geheim, het niveau
+    /// en de epoch van de invoer (`besteding::Record`: `geheim_in`, `niveau`,
+    /// `epoch_in`). Wie het record en de keten kent, kan dus voor die noot de
+    /// audit-tag (voor elke auditoridentiteit) en de v0-nullifier
+    /// (`Note::nullifier`) uitrekenen. Vanaf dat moment geldt "alleen de
+    /// houder kan hem maken" dus niet meer.
     pub fn audit_tag(&self, chain: &ChainId, auditor: &[u8]) -> Digest {
         dsh(
             b"GL/audit/v0",
