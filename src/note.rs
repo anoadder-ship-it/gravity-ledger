@@ -112,7 +112,7 @@ impl Note {
     /// `epoch_in`). Wie het record en de keten kent, kan dus voor die noot de
     /// audit-tag (voor elke auditoridentiteit) en de v0-nullifier
     /// (`Note::nullifier`) uitrekenen. Vanaf dat moment geldt "alleen de
-    /// houder kan hem maken" dus niet meer.
+    /// houder kan hem maken" niet meer.
     pub fn audit_tag(&self, chain: &ChainId, auditor: &[u8]) -> Digest {
         dsh(
             b"GL/audit/v0",
