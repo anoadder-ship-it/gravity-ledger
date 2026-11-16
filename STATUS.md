@@ -270,9 +270,18 @@ met FN-DSA-512 in plaats van Ed25519 (pk 897 + handtekening in plaats van
 15 september 2026 (epoch 1035)). Bij 2^32 bladeren is dat 3.934 of 3.791 byte,
 plus een overhead die niet gemeten is (open punt 12).
 
-**Acceptatievenster (concurrency):** verificatie tegen een oudere wortel in het
-venster kost weinig meer dan verificatie tegen de huidige wortel; de tijden
-staan in `docs/metingen.md`.
+**Acceptatievenster (concurrency):** gemeten op 2026-11-16, drie runs
+(`docs/metingen.md`). Een waar bewijs tegen de wortel van 3 bladen terug werd
+in alle drie de runs aanvaard (10.240 van de 10.240 controles per
+boomgrootte); een waar bewijs tegen de wortel van 64 bladen terug werd steeds
+geweigerd. Bij 10.000 en 100.000 bladen kostte verificatie in het venster per
+run 0,08 tot 0,13 µs meer dan verificatie tegen de huidige wortel (2,77 tegen
+2,68 µs, en 3,31–3,36 tegen 3,23 µs); `accepts_root` alleen kostte 76–79 ns.
+Bij 1.000 bladen is de spreiding tussen de runs groter dan dat verschil, dus
+daar is het niet vast te stellen. Gemeten is alleen een wortel op de 61e van
+de 64 plaatsen in de scan; andere posities niet. De vorige uitspraak hier
+("kost weinig meer") steunde op een ongeldige meting die een altijd falende
+verificatie mat; zie `docs/metingen.md`.
 
 Caveats: de tijden zijn release-builds op één machine, 30 herhalingen voor PQ.
 ML-DSA-tekentijden zijn variabel door afwijzingsbemonstering — dat is een
@@ -343,6 +352,10 @@ combinaties, inclusief de groei-overgangen 1→2, 3→4, 7→8) vond beide defec
 direct. Een tweede les: mijn eerste meting van dit venster mat de huidige
 wortel, die via de eerste toets meteen terugkeert. De echte scan kost een
 veelvoud daarvan. Meet het pad dat je bedoelt, niet het dichtstbijzijnde.
+Een derde les: de meting die daarna kwam, maakte bewijzen tegen de huidige
+wortel en controleerde ze tegen een oudere; geen enkele controle slaagde, en
+toch leverde de meting tot 2026-11-16 een getal op. Sindsdien eist elke
+getimede controle in `src/bench.rs` haar uitkomst.
 
 ## 3d. Anonimiteitsmodel: menigte in de emmer (onderzoek, historisch)
 

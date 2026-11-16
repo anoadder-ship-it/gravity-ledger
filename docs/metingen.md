@@ -8,7 +8,7 @@ ze volgen uit het formaat en waren in alle drie de runs gelijk.
 
 | | |
 |---|---|
-| datum | 2026-11-13 |
+| datum | 2026-11-16 |
 | machine | aarch64 (ARM), 20 kernen: 10 × Cortex-X925 (tot 3,9 GHz) en 10 × Cortex-A725 (tot 2,8 GHz) |
 | Rust | rustc 1.97.1 (stable), release-build |
 | commando | `cargo test --release -- --ignored --nocapture` (hier met `--offline --test-threads=1`) |
@@ -16,11 +16,24 @@ ze volgen uit het formaat en waren in alle drie de runs gelijk.
 De threads zijn niet aan een kern vastgezet; de planner kan een meting op een
 snelle of een zuinige kern laten lopen. Dat verklaart een deel van de spreiding.
 
+Alle tijden in dit document komen uit dezelfde drie runs van 2026-11-16, met
+de code van `src/bench.rs` zoals die sindsdien is. De vorige versie van dit
+document (metingen van 2026-11-13) staat in de geschiedenis van de repo. Ook
+de kolommen die toen goed gemeten waren, zijn opnieuw gemeten en niet
+overgenomen: de getimede lussen tellen sinds 2026-11-16 hun uitkomsten, dus
+de oude getallen komen van andere code, en zo staat er één meetsessie in het
+document in plaats van een mengsel van datums.
+
+Elke getimede controle telt hoe vaak de uitkomst klopt, en de meting eist die
+telling na de lus: alle geslaagd, of alle geweigerd waar weigeren de bedoeling
+is. Een meting die een ander pad meet dan bedoeld, wordt rood en levert geen
+getal op. Alle drie de runs waren groen.
+
 De metingen staan in `src/bench.rs`:
 
 | meting | wat | herhalingen per getal |
 |---|---|---|
-| `meet_ladder_en_bewijzen` | accumulator bij 1.000, 10.000 en 100.000 bladen; waardebehoud | mint: gemiddeld over n opnames; wortel: 1.000; verifiëren: 40 × 256 bewijzen; bewijs maken, venster en afwijzing: 256; behoud: 2.000.000 |
+| `meet_ladder_en_bewijzen` | accumulator bij 1.000, 10.000 en 100.000 bladen; waardebehoud | mint: gemiddeld over n opnames; wortel: 1.000; verifiëren, in het venster en buiten het venster: elk 40 × 256 bewijzen; bewijs maken, vensterscan en afwijzing: 256; behoud: 2.000.000 |
 | `meet_besteding` | één zichtbare besteding (`Ledger::besteed`) bij 1.000, 10.000 en 100.000 bladen | 60 records |
 | `meet_pq_vloer` | ML-DSA-44, -65 en -87 (`dilithium-rs`, dev-afhankelijkheid) | 30 keer tekenen en 30 keer verifiëren |
 | `meet_falcon_vloer` | FN-DSA-512 en -1024 (`falcon-rs`, dev-afhankelijkheid) | 30 keer tekenen en 30 keer verifiëren |
@@ -29,35 +42,64 @@ De metingen staan in `src/bench.rs`:
 
 ### Accumulator (`meet_ladder_en_bewijzen`)
 
-| bladen | mint | wortel | verifiëren | verifiëren met oudere wortel in het venster | bewijs maken | vensterscan | afwijzing buiten het venster |
-|---|---|---|---|---|---|---|---|
-| 1.000 | 1,99–3,78 µs | 2–3 ns | 1,98–3,13 µs | 1,99–2,05 µs | 0,03–0,29 µs | 76–78 ns | 79–82 ns |
-| 10.000 | 2,63–2,70 µs | 2 ns | 2,72–2,77 µs | 2,84–2,95 µs | 0,04–0,05 µs | 82–89 ns | 80–84 ns |
-| 100.000 | 3,35–3,40 µs | 2 ns | 3,28–3,37 µs | 3,62–4,61 µs | 0,14–0,55 µs | 83–96 ns | 79–81 ns |
+| bladen | mint | wortel | verifiëren | in het venster | buiten het venster (geweigerd) | bewijs maken | vensterscan | afwijzing buiten het venster |
+|---|---|---|---|---|---|---|---|---|
+| 1.000 | 1,89–3,49 µs | 3–6 ns | 1,96–3,09 µs | 2,03–2,04 µs | 2,04 µs | 0,03–0,05 µs | 76–77 ns | 79–80 ns |
+| 10.000 | 2,51–2,52 µs | 3 ns | 2,68 µs | 2,77 µs | 2,77–2,79 µs | 0,05 µs | 76 ns | 79 ns |
+| 100.000 | 3,16–3,18 µs | 3 ns | 3,23 µs | 3,31–3,36 µs | 3,31–3,32 µs | 0,12–0,14 µs | 78–79 ns | 79–80 ns |
 
-Waardebehoud (`Shape::check` over 33 niveaus): 20 ns in alle drie de runs.
+Wat de kolommen meten:
+
+- **verifiëren**: `Proof::verify` tegen de huidige wortel; alle 10.240
+  controles slagen.
+- **in het venster**: `Accumulator::verify_at` met bewijzen die zijn gemaakt
+  toen de boom 3 bladen kleiner was, tegen de wortel van dat moment. Die wortel
+  zit nog in het venster; alle 10.240 controles slagen. Dit is de vouwing plus
+  `accepts_root`.
+- **buiten het venster (geweigerd)**: hetzelfde, met bewijs en wortel van 64
+  bladen terug. Het bewijs is waar tegen die wortel (dat wordt vooraf geëist),
+  maar de wortel is uit het venster gevallen; alle 10.240 controles weigeren.
+- **vensterscan**: alleen `accepts_root` voor de wortel van 3 bladen terug.
+  De functie vergelijkt eerst met de huidige wortel en loopt dan de 64 wortels
+  van de changelog af, oudste vooraan; deze wortel is de 61e.
+- **afwijzing buiten het venster**: alleen `accepts_root` voor een digest die
+  nooit een wortel was: vergelijking met de huidige wortel en alle 64
+  plaatsen, dan weigering.
+
+**De vorige versie van de kolom "verifiëren met oudere wortel in het venster"
+(2026-11-13: 1,99–2,05 / 2,84–2,95 / 3,62–4,61 µs) was ongeldig.** Die meting
+maakte de bewijzen tegen de huidige wortel en controleerde ze met `verify_at`
+tegen een wortel van 3 bladen terug. Dan vouwt geen enkel bewijs naar die
+wortel: 0 van de 256 controles slaagden, bij alle drie de boomgroottes
+(nagemeten op 2026-11-16 met de code van toen), en `accepts_root` werd door
+de kortsluiting van `&&` nooit aangeroepen. De meting mat dus hoe lang een
+mislukte vouwing duurt.
+
+Waardebehoud (`Shape::check` over 33 niveaus): 19 ns in alle drie de runs.
 
 ### Besteding (`meet_besteding`)
 
 | bladen | tijd per besteding |
 |---|---|
-| 1.000 | 43,9–109,8 µs |
-| 10.000 | 43,9–45,6 µs |
-| 100.000 | 46,1–47,2 µs |
+| 1.000 | 42,1–79,2 µs |
+| 10.000 | 42,8–42,9 µs |
+| 100.000 | 44,1–44,2 µs |
 
 ### Post-kwantumhandtekeningen (`meet_pq_vloer`, `meet_falcon_vloer`)
 
 | schema | tekenen | verifiëren |
 |---|---|---|
-| FN-DSA-512 | 267–485 µs | 26–51 µs |
-| FN-DSA-1024 | 540–549 µs | 50–52 µs |
-| ML-DSA-44 | 218–279 µs | 69 µs |
-| ML-DSA-65 | 323–397 µs | 113 µs |
-| ML-DSA-87 | 221–342 µs | 82–84 µs |
+| FN-DSA-512 | 260–262 µs | 25 µs |
+| FN-DSA-1024 | 528–530 µs | 49 µs |
+| ML-DSA-44 | 102–267 µs | 30–69 µs |
+| ML-DSA-65 | 191–395 µs | 48–112 µs |
+| ML-DSA-87 | 221–307 µs | 80–81 µs |
 
 De tekentijd van ML-DSA wisselt ook door het algoritme zelf
 (afwijzingsbemonstering): een handtekening kan meer pogingen nodig hebben. Daarom
-is ML-DSA-87 in sommige runs sneller dan ML-DSA-65.
+is ML-DSA-87 in een van de drie runs sneller dan ML-DSA-65. De verificatietijden van
+ML-DSA-44 en -65 lagen in één van de drie runs ruim twee keer hoger dan in de
+andere twee; de oorzaak daarvan is niet vastgesteld.
 
 ## Maten (vast)
 
