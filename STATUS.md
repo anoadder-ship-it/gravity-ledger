@@ -3,7 +3,7 @@
 **Doel:** eerste bestand bij hervatten. Legt vast waar we staan, wat bewezen is,
 en welke keuzes waarom zijn gemaakt — zodat niets herhaald hoeft te worden.
 
-Laatst bijgewerkt: 2026-11-15. **107 tests groen (57 in de bibliotheek, 29 in
+Laatst bijgewerkt: 2026-11-16. **107 tests groen (57 in de bibliotheek, 29 in
 `tests/besteding.rs`, 9 in `tests/veiligheid.rs`, 8 in `tests/handtekening.rs`,
 4 doctests), plus 4 metingen onder `#[ignore]`; alle
 prestatiegetallen gemeten, niet geschat.** Externe review van 2026-11-10
@@ -40,7 +40,7 @@ lidmaatschap wordt gecontroleerd. Sinds stap 7 doet `Ledger::besteed` dat; de
 oude `spend`, die een nooit opgenomen noot kon besteden (review G1, R1/R2), is
 verwijderd.
 
-## 0a. Stand van de reviewbevindingen (12 november 2026)
+## 0a. Stand van de reviewbevindingen (12 november 2026, met de rondes van 15 en 16 november)
 
 | stap | wat | bevinding |
 |---|---|---|
@@ -127,6 +127,23 @@ openbare API.
   laagste niveau. Mutatie (`check` laat elke onbalans door, `--no-fail-fast`):
   rood worden `een_invoer_een_uitgang`,
   `extra_noot_op_elk_niveau_wordt_ontdekt` en `r4_behoud_omgekeerd`.
+
+**Ronde van 16 november 2026.** Geen wijziging aan productiecode of aan de
+openbare API.
+
+- De venstermeting in `meet_ladder_en_bewijzen` mat een verificatie die
+  altijd faalde: de bewijzen waren tegen de huidige wortel gemaakt en werden
+  tegen een oudere gecontroleerd (0 van de 256 slaagden). Nu worden bewijs en
+  wortel op hetzelfde moment vastgelegd, en er is een gemeten geval bij
+  gekomen van een waar bewijs tegen een wortel net buiten het venster, dat
+  wordt geweigerd. Elke getimede controle in `src/bench.rs` eist haar
+  uitkomst; met de oude fout teruggezet wordt de meting rood. Opnieuw gemeten
+  in drie runs; zie sectie 3 en `docs/metingen.md`.
+- Commentaar: de rustdoc van `DEFAULT_CHANGELOG` zegt precies wat het
+  venster bevat (de huidige wortel en de 63 daarvoor); in `src/note.rs` zijn
+  "QROM-binding", "PQ voor gratis" en "botsingsvast en verborgen" vervangen
+  door de gebruikte hash en de aannames waarop binding en verborgenheid
+  steunen; punt 13b hieronder spreekt niet meer van een audit.
 
 ---
 
@@ -529,7 +546,7 @@ beveiligd.
     a. `note::denom_value` is publiek en geeft een paniek (`assert!`) bij
        niveau 33 of hoger.
     b. `Shape::total_value` kan in een debug-build overlopen (paniek); de
-       functie is bedoeld voor alleen tests en audit.
+       functie wordt alleen in tests aangeroepen, en er is geen audit-laag.
     c. `Ledger::mint` controleert niveau en epoch niet: een munt met niveau 33
        of hoger telt wel in een emmer, maar is niet te besteden.
 14. **`Violation::Overflow` is onbereikbaar.** Elke telling in `Shape` is een

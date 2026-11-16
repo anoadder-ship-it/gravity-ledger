@@ -111,7 +111,13 @@ pub struct Change {
     pub index: usize,
 }
 
-/// Standaard aantal oude wortels waartegen een bewijs nog aanvaard wordt.
+/// Standaardgrootte van de changelog: de wortels direct na de laatste 64
+/// opnames (`push`). De nieuwste daarvan is de huidige wortel, dus het venster
+/// bevat de huidige wortel en de 63 wortels daarvoor; na 200 opnames zijn dat
+/// de wortels na opname 137 tot en met 200 (test `r5_boom_en_venster`). Bij
+/// minder dan 64 opnames bevat het alle wortels na een opname. `accepts_root`
+/// aanvaardt daarnaast altijd de huidige wortel, dus bij een lege boom de
+/// wortel van de lege boom.
 pub const DEFAULT_CHANGELOG: usize = 64;
 
 #[derive(Clone, Debug, Default)]

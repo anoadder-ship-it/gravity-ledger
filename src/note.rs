@@ -1,9 +1,14 @@
 //! De noot: het enige waarde-object in gravity-ledger.
 //!
-//! Een noot heeft **één vaste denominatie**. Dat is de hele truc: de waarde
-//! hoeft niet verborgen te worden, want ze staat nergens — de noot *is* de
-//! waarde. Daardoor bestaat de range-proof die bij RingCT het duurste en het
-//! minst PQ-bestendige onderdeel is uit **nul bytes**.
+//! Een noot heeft **één vaste denominatie**: haar niveau. Er is geen bedrag
+//! dat apart verborgen of begrensd moet worden; de noot *is* de waarde. Een
+//! bewijs dat een verborgen bedrag binnen een bereik ligt (een range-proof) is
+//! daarom niet nodig.
+//!
+//! Alle hashes in dit bestand zijn `dsh`: BLAKE3, uitgebreid tot 64 byte via
+//! de XOF, met een eigen domeintag per gebruik (`src/hash.rs`). Wat hieronder
+//! over binding en verborgenheid staat, zijn aannames over die hash en over
+//! het geheim; deze repo bevat er geen bewijs voor.
 
 use crate::hash::{dsh, Digest};
 
@@ -18,7 +23,10 @@ pub fn denom_value(level: u8) -> u64 {
     1u64 << level
 }
 
-/// Context die in élk bewijs en elke commitment hoort (QROM-binding).
+/// Identiteit van de keten (32 byte). Gaat de hash in van de commitment, van
+/// beide nullifiers (`Note::nullifier` en `besteding::nullifier`), van het
+/// getekende bericht (`besteding::bericht`) en van de audit-tag, zodat een
+/// noot of record van de ene keten op een andere een andere waarde geeft.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChainId(pub [u8; 32]);
 
@@ -49,7 +57,17 @@ pub fn owner_hash(scheme: &[u8], public_key: &[u8]) -> Digest {
 impl Note {
     /// `C = H("GL/commit/v1", chain_id, level, epoch, owner, secret)`
     ///
-    /// Botsingsvast (binding) en verborgen (hiding). Dit is wat op de keten gaat.
+    /// Dit is wat op de keten gaat: 64 byte, `dsh` (BLAKE3-XOF) met domeintag
+    /// `GL/commit/v1`.
+    ///
+    /// Binding (niemand vindt twee verschillende openingen met dezelfde C)
+    /// steunt op de aanname dat deze hash botsingsvrij is. Verborgenheid (C
+    /// verraadt de velden niet) steunt op de aanname dat de hash niets over
+    /// zijn invoer prijsgeeft, en op een onvoorspelbaar geheim van 32 byte: de
+    /// andere velden zijn te raden. De bibliotheek maakt het geheim niet zelf
+    /// aan; de houder kiest het. Bij een zichtbare besteding staat het geheim
+    /// in het record, dus vanaf dan is C niet meer verborgen. Deze repo bevat
+    /// voor geen van beide eigenschappen een bewijs.
     /// v1 voegt de eigenaar toe (stap 4): `Ledger::besteed` rekent `owner`
     /// uit de publieke sleutel in het record (controle 3) en controleert de
     /// handtekening onder die sleutel (controle 7).
@@ -66,11 +84,15 @@ impl Note {
     /// gebruikt `besteding::nullifier` (v1, gebonden aan positie en
     /// commitment); deze v0 hoort bij het anonieme model (STATUS.md 3d).
     ///
-    /// De gedachte erachter: CryptoNote's key image
-    /// `I = x·Hp(P)` vraagt een groepsstructuur en sneuvelt als eerste onder een
-    /// quantumcomputer. Hier is de image een keyed hash: deterministisch uit het
-    /// geheim (dus dubbeluitgave is detecteerbaar), niet-linkbaar aan de
-    /// commitment (andere domeintag, geheime input), en PQ voor gratis.
+    /// De gedachte erachter: waar CryptoNote een key image `I = x·Hp(P)` op een
+    /// elliptische kromme gebruikt, is dit een hash over het geheim (`dsh`,
+    /// BLAKE3-XOF, 64 byte, domeintag `GL/nullify/v0`). Hij is deterministisch
+    /// uit keten, niveau, epoch en geheim, dus een tweede besteding van dezelfde noot geeft dezelfde
+    /// N. Dat N zonder het geheim niet aan de commitment te koppelen is, steunt
+    /// op dezelfde aannames als de verborgenheid van de commitment
+    /// (onvoorspelbaar geheim, een hash die niets over zijn invoer prijsgeeft).
+    /// Deze repo bevat daar geen bewijs voor, en geen analyse van de sterkte
+    /// van deze constructie tegen een quantumcomputer.
     pub fn nullifier(&self, chain: &ChainId) -> Digest {
         dsh(
             b"GL/nullify/v0",
@@ -78,9 +100,12 @@ impl Note {
         )
     }
 
-    /// Selective disclosure: een **audit-tag** die alleen de houder kan maken en
-    /// alleen de aangewezen auditor kan herkennen. Geen view key op de keten,
-    /// geen onthulling van de rest van het bezit.
+    /// Een **audit-tag**: `dsh` (BLAKE3-XOF, 64 byte, domeintag `GL/audit/v0`)
+    /// over keten, de identiteit van een auditor, niveau, epoch en geheim.
+    /// Uitrekenen vraagt het geheim; dat alleen de houder hem kan maken, steunt
+    /// dus op een onvoorspelbaar geheim en op de aannames over de hash. Hoe een
+    /// auditor een tag herkent, staat niet in de code: er is geen audit-laag,
+    /// en deze functie wordt alleen in de tests van dit bestand aangeroepen.
     pub fn audit_tag(&self, chain: &ChainId, auditor: &[u8]) -> Digest {
         dsh(
             b"GL/audit/v0",
