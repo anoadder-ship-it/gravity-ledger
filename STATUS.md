@@ -409,8 +409,11 @@ te hashen en te kijken welke notitie het was. De anonimiteit verdwijnt op het
 moment dat je hem bewijst.
 
 **Wat wél kan met alleen hashes en PQ-handtekeningen.** Een besteding maakt
-publiek: één nullifier (zonder geheim niet koppelbaar aan een commitment) en
-één nieuwe commitment. Een waarnemer ziet dus alleen: in emmer (epoch, niveau)
+publiek: één nullifier (`Note::nullifier`, v0) en één nieuwe commitment. Dat
+die nullifier zonder het geheim niet aan een commitment te koppelen is, is
+geen vastgestelde eigenschap maar een aanname: een onvoorspelbaar geheim en
+een hash die niets over zijn invoer prijsgeeft (rustdoc in `src/note.rs`);
+deze repo bevat er geen bewijs voor. Een waarnemer ziet dus alleen: in emmer (epoch, niveau)
 is er één verbrand en één bijgekomen. Het aantal noten van dát niveau in dát
 epoch bepaalt hoeveel kandidaten hij heeft om input aan output te koppelen.
 
@@ -442,8 +445,10 @@ die voor "welke input verbrandde dit". Beide staan nu expliciet in de code
 (`menigte` en `live`).
 
 **Wat het model niet is:** geen sterke unlinkability. Het is menigte-anonimiteit
-binnen (epoch, niveau) — sterker naarmate de emmer voller is, en met opzet
-doorzichtbaar voor houders van de auditsleutel via de audit-tag. Voor
+binnen (epoch, niveau) — sterker naarmate de emmer voller is, onder de
+aannames hierboven. Er is geen audit-laag en geen auditsleutel:
+`Note::audit_tag` bestaat, wordt alleen in de tests van `src/note.rs`
+aangeroepen, en hoe een auditor een tag herkent staat niet in de code. Voor
 onkoppelbaarheid zonder aannames is nog steeds een één-van-N-bewijs nodig, en dat
 bestaat post-kwantum niet in geauditeerde vorm.
 
