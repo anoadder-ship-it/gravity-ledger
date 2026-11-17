@@ -87,8 +87,9 @@ After the first download of the dependencies, `--offline` can be added to
 either command. The measurement command also prints the post-quantum
 signature measurements (FN-DSA and ML-DSA, from the dev-dependencies).
 
-Rust version: the suite passes on Rust 1.89 and on stable 1.97.1; the minimum
-supported version has not been determined.
+Rust version: the minimum supported version is 1.89 (`rust-version` in
+Cargo.toml); the suite passes on Rust 1.89.0 and on stable 1.97.1. Older
+versions have not been tested.
 
 ## Further reading
 

@@ -2,6 +2,7 @@
 name = "gravity-ledger"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.89"
 description = "Research prototype, not audited: a fixed-denomination ledger with a BLAKE3 Merkle accumulator and visible, Ed25519-signed spends."
 license = "Apache-2.0"
 repository = "https://github.com/anoadder-ship-it/gravity-ledger"
