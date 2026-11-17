@@ -701,4 +701,41 @@ mod tests {
         let b1 = dsh(LEAF_TAG, &[&[1, 0, 0, 0, 0, 0, 0, 0], &leaf(43)]);
         assert_eq!(a.root(), internal(&b0, &b1));
     }
+
+    /// Draadformaat: `from_bytes` aanvaardt precies de lengtes die een
+    /// veelvoud van `DIGEST_BYTES` zijn, met lengte / 64 siblings, en
+    /// `to_bytes` geeft dan dezelfde bytes terug. Elke andere lengte geeft
+    /// `None`. Lengte 0 is het lege bewijs (boom met één blad). Een grens op
+    /// de diepte legt `from_bytes` niet op: die zit in `verify` en in
+    /// `Record::from_bytes` (zie tests/veiligheid.rs, stap 6).
+    #[test]
+    fn from_bytes_weigert_lengte_die_geen_veelvoud_van_64_is() {
+        use crate::hash::DIGEST_BYTES;
+        // Deterministisch patroon met periode 251, zodat opeenvolgende
+        // siblings verschillen en een verschoven of verwisselde chunk opvalt.
+        let bytes = |len: usize| -> Vec<u8> { (0..len).map(|i| (i % 251) as u8).collect() };
+        let controleer = |len: usize| {
+            let b = bytes(len);
+            match Proof::from_bytes(&b) {
+                Some(p) => {
+                    assert_eq!(len % DIGEST_BYTES, 0, "len={len}: Some voor geen veelvoud");
+                    assert_eq!(p.depth(), len / DIGEST_BYTES, "len={len}: aantal siblings");
+                    assert_eq!(p.to_bytes(), b, "len={len}: to_bytes(from_bytes(b)) != b");
+                }
+                None => assert_ne!(len % DIGEST_BYTES, 0, "len={len}: None voor een veelvoud"),
+            }
+        };
+        for len in 0..=2561 {
+            controleer(len);
+        }
+        // Grote veelvouden en hun buren, ook voorbij MAX_DIEPTE.
+        for d in [MAX_DIEPTE, MAX_DIEPTE + 1, 1_000] {
+            for len in [d * DIGEST_BYTES - 1, d * DIGEST_BYTES, d * DIGEST_BYTES + 1] {
+                controleer(len);
+            }
+        }
+        // Lengte 0 is het bewijs van een boom met één blad.
+        assert_eq!(Proof::from_bytes(&[]), Some(Proof { path: Vec::new() }));
+        assert!(tree(&[1]).proof(0).unwrap().to_bytes().is_empty());
+    }
 }
