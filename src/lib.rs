@@ -11,6 +11,7 @@ pub mod conservation;
 pub mod handtekening;
 pub mod hash;
 #[cfg(test)]
+#[rustfmt::skip]
 pub mod kat;
 pub mod note;
 pub mod spend;
