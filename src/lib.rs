@@ -206,7 +206,7 @@ mod tests {
         ]);
         s[8..16].copy_from_slice(&[seed; 8]);
         for i in 0..24 {
-            s[16 + (i % 16)] ^= (level as u8)
+            s[16 + (i % 16)] ^= level
                 .wrapping_mul(31)
                 .wrapping_add(seed)
                 .wrapping_add(i as u8);

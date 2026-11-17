@@ -204,8 +204,7 @@ mod tests {
         }
 
         // Fooi: alles op niveau 0 mag op, de rest wordt output.
-        for lvl in 0..DENOM_LEVELS {
-            let n = pool[lvl];
+        for (lvl, &n) in pool.iter().enumerate() {
             if n == 0 {
                 continue;
             }

@@ -95,7 +95,7 @@ impl Proof {
 
     /// Leest het draadformaat. `None` bij een lengte die geen veelvoud van 64 is.
     pub fn from_bytes(b: &[u8]) -> Option<Proof> {
-        if b.len() % crate::hash::DIGEST_BYTES != 0 {
+        if !b.len().is_multiple_of(crate::hash::DIGEST_BYTES) {
             return None;
         }
         let path = b
@@ -185,7 +185,7 @@ impl Accumulator {
             if n < 2 {
                 break;
             }
-            let want = (n + 1) / 2;
+            let want = n.div_ceil(2);
             if self.levels.len() == k + 1 {
                 self.levels.push(Vec::new());
             }
@@ -280,7 +280,7 @@ impl Accumulator {
         while k < self.levels.len() - 1 {
             let n = self.levels[k].len();
             // Los kind aan de rechterkant van een oneven niveau: de sibling is de knoop zelf.
-            let sib = if idx % 2 == 0 {
+            let sib = if idx.is_multiple_of(2) {
                 if idx + 1 < n {
                     idx + 1
                 } else {
