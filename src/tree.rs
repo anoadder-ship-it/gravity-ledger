@@ -708,6 +708,9 @@ mod tests {
     /// `None`. Lengte 0 is het lege bewijs (boom met één blad). Een grens op
     /// de diepte legt `from_bytes` niet op: die zit in `verify` en in
     /// `Record::from_bytes` (zie tests/veiligheid.rs, stap 6).
+    /// De siblings staan van onderaf in het draadformaat: `p.path[k]` is
+    /// precies `b[64k..64k + 64]`, dus ook een symmetrisch omgekeerde volgorde
+    /// valt op.
     #[test]
     fn from_bytes_weigert_lengte_die_geen_veelvoud_van_64_is() {
         use crate::hash::DIGEST_BYTES;
@@ -721,6 +724,10 @@ mod tests {
                     assert_eq!(len % DIGEST_BYTES, 0, "len={len}: Some voor geen veelvoud");
                     assert_eq!(p.depth(), len / DIGEST_BYTES, "len={len}: aantal siblings");
                     assert_eq!(p.to_bytes(), b, "len={len}: to_bytes(from_bytes(b)) != b");
+                    for (k, sib) in p.path.iter().enumerate() {
+                        let chunk = &b[k * DIGEST_BYTES..(k + 1) * DIGEST_BYTES];
+                        assert_eq!(sib.as_slice(), chunk, "len={len}: sibling {k} verplaatst");
+                    }
                 }
                 None => assert_ne!(len % DIGEST_BYTES, 0, "len={len}: None voor een veelvoud"),
             }
