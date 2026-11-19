@@ -76,13 +76,13 @@ Wat de kolommen meten:
 
 **De vorige versie van de kolom "verifiëren met oudere wortel in het venster"
 was ongeldig.** De oude tabel staat in de versie van dit bestand in commit
-`54ed7b8`; de getallen van die kolom zijn hier bewust niet overgenomen. Die meting
-maakte de bewijzen tegen de huidige wortel en controleerde ze met `verify_at`
-tegen een wortel van 3 bladen terug. Dan vouwt geen enkel bewijs naar die
-wortel: 0 van de 256 controles slaagden, bij alle drie de boomgroottes
-(nagemeten op 2026-11-16 met de code van toen), en `accepts_root` werd door
-de kortsluiting van `&&` nooit aangeroepen. De meting mat dus hoe lang een
-mislukte vouwing duurt.
+`54ed7b8`; de getallen van die kolom zijn hier bewust niet overgenomen. Die
+meting maakte de bewijzen tegen de huidige wortel en controleerde ze met
+`verify_at` tegen een wortel van 3 bladen terug. Dan vouwt geen enkel bewijs
+naar die wortel: 0 van de 256 controles slaagden, bij alle drie de boomgroottes
+(nagemeten op 2026-11-16 met de code van toen), en `accepts_root` werd door de
+kortsluiting van `&&` nooit aangeroepen. De meting mat dus hoe lang een mislukte
+vouwing duurt.
 
 Waardebehoud (`Shape::check` over 33 niveaus): 20 ns in alle drie de runs.
 

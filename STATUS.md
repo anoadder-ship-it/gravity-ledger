@@ -13,8 +13,9 @@ verwerkt in sectie 0; stand van de bevindingen in sectie 0a.
 
 ## 0. Besluit van de eigenaar (10 november 2026)
 
-Naar aanleiding van de externe review van de stand vóór stap 1 (bevindingen G1–G6,
-historisch verslag met de oorspronkelijke code in `docs/review-2026-11-10.md`):
+Naar aanleiding van de externe review van de stand vóór stap 1 (bevindingen
+G1–G6, historisch verslag met de oorspronkelijke code in
+`docs/review-2026-11-10.md`):
 
 1. **Veiligheid gaat altijd boven privacy.** Een eigenschap die geld kan laten
    ontstaan of stelen, wordt nooit ingeruild tegen anonimiteit.
@@ -58,7 +59,9 @@ verwijderd.
 | 7e | de index gaat als u64 (8 byte, little-endian) in het blad; `MAX_DIEPTE` vast op 64; wortels en bewijzen voor n = 1..70 byte-gelijk aan die van stap 7 (gemeten door de reviewer) | `compile_error!` weg; wasm32 compileert |
 | 7f | test `alice_na_mallory_in_dezelfde_emmer`; dieptetest op `MAX_DIEPTE`; docstring `Ledger::mint`; open punt 13 | vier lage punten uit een onafhankelijke review van stap 7c tot en met 7e. De dieptetest (`stap6_te_lang_bewijs_wordt_geweigerd`) wordt zonder de dieptegrens alleen in een debug-build rood; in een release-build overleeft de mutant omdat de schuif daar omloopt, zonder veiligheidsgevolg. De test borgt de grens dus alleen in debug. |
 
-De commit-voor-commit geschiedenis van deze stappen, met de rood-vóór-groen-uitkomsten, is niet gepubliceerd; de tests in tests/ en src/ bewijzen de eigenschappen.
+De commit-voor-commit geschiedenis van deze stappen, met de
+rood-vóór-groen-uitkomsten, is niet gepubliceerd; de tests in tests/ en src/
+bewijzen de eigenschappen.
 
 **Gewijzigde verwachting in stap 7c.** De eerste versie van deze wijziging kwam
 niet van de schrijver van de rest van de code en is pas overgenomen na
@@ -219,10 +222,10 @@ vindt bij een hash met n bit uitvoer een botsing met ongeveer 2^(n/3)
 bevragingen: voor n = 256 ongeveer 2^85 (256/3 ≈ 85,3), voor n = 512 ongeveer
 2^171 (512/3 ≈ 170,7). Volgens die rekensom vraagt een grotere marge om een
 *bredere* output, niet om twee functies; voor BLAKE3-XOF op 64 byte geeft de
-som ongeveer 2^171, met één afhankelijkheid en 33% kleinere bewijzen. Dit is een rekensom op
-een algemene grens van die ene aanval, geen bewijs en geen meting; deze repo
-bevat geen veiligheidsbewijs. Echte scheiding zit in domeinscheiding, niet in
-het stapelen van primitieven.
+som ongeveer 2^171, met één afhankelijkheid en 33% kleinere bewijzen. Dit is een
+rekensom op een algemene grens van die ene aanval, geen bewijs en geen meting;
+deze repo bevat geen veiligheidsbewijs. Echte scheiding zit in domeinscheiding,
+niet in het stapelen van primitieven.
 
 **2.2 Index-gebonden bladeren.**
 Zonder index-binding had mijn eigen boom twee echte gaten (beide aangetoond met
@@ -239,10 +242,10 @@ wortel-fouten geworden.
 
 **2.4 Eén handtekening per transactie, niet per noot.**
 Gemeten: de kleinste PQ-handtekening (FN-DSA-512) is 809 byte in het
-constant-time-formaat van `falcon-rs` (666 byte in het padded-formaat), ML-DSA-44
-is 2.420 byte, terwijl het hele lidmaatschapsbewijs 1.088 byte is (100.000
-bladeren, gemeten na stap 6). De handtekening
-bepaalt de ondergrens; per noot signeren vermenigvuldigt die.
+constant-time-formaat van `falcon-rs` (666 byte in het padded-formaat),
+ML-DSA-44 is 2.420 byte, terwijl het hele lidmaatschapsbewijs 1.088 byte is
+(100.000 bladeren, gemeten na stap 6). De handtekening bepaalt de ondergrens;
+per noot signeren vermenigvuldigt die.
 
 **2.5 Hypothese (niet gebouwd, niet gemeten): anonimiteit zou relatief
 goedkoop kunnen zijn.** De PQ-handtekening betaal je hoe dan ook. De
@@ -284,13 +287,13 @@ ook de groottes in draft-ietf-cose-falcon-04, tabel 1.
 
 SIMD-0461 was een voorstel om Falcon-verificatie als syscall aan Solana toe te
 voegen; het is gesloten en niet doorgevoerd. Gemeten is FN-DSA-512 wel de
-kleinste van de vijf: **drie keer kleiner dan ML-DSA-44**. Budget van de zichtbare
-besteding (stap 7) bij 100.000 bladeren: met Ed25519 **1.364 byte** (gemeten);
-met FN-DSA-512 in plaats van Ed25519 (pk 897 + handtekening in plaats van
-32 + 64) **2.974 byte** met 809 byte (CT) of **2.831 byte** met 666 byte
-(padded), berekend, tegen een limiet van 4.096 (SIMD-0296, live sinds
-15 september 2026 (epoch 1035)). Bij 2^32 bladeren is dat 3.934 of 3.791 byte,
-plus een overhead die niet gemeten is (open punt 12).
+kleinste van de vijf: **drie keer kleiner dan ML-DSA-44**. Budget van de
+zichtbare besteding (stap 7) bij 100.000 bladeren: met Ed25519 **1.364 byte**
+(gemeten); met FN-DSA-512 in plaats van Ed25519 (pk 897 + handtekening in plaats
+van 32 + 64) **2.974 byte** met 809 byte (CT) of **2.831 byte** met 666 byte
+(padded), berekend, tegen een limiet van 4.096 (SIMD-0296, live sinds 15
+september 2026 (epoch 1035)). Bij 2^32 bladeren is dat 3.934 of 3.791 byte, plus
+een overhead die niet gemeten is (open punt 12).
 
 **Acceptatievenster (concurrency):** gemeten op 2026-11-16, drie runs (de
 tweede meetronde van die dag, `docs/metingen.md`). Een waar bewijs tegen de
@@ -331,14 +334,14 @@ botsing in de boom is nieuw geld uit het niets. Bij 32-byte knooppunten is dat
 klassiek netjes, maar volgens de BHT-grens uit 2.1 (ongeveer 2^(n/3)
 bevragingen) is een botsing bij 256 bit te vinden met ongeveer 2^85 — de reden
 om naar 64-byte BLAKE3-XOF-knooppunten te gaan (ongeveer 2^171). Ook dit is een
-rekensom op een algemene grens, geen bewijs en geen meting. En een SNARK met setup importeren
-in een project waarvan het bestaansrecht is dat het géén SNARK nodig heeft, is
-het doel opofferen aan het middel.
+rekensom op een algemene grens, geen bewijs en geen meting. En een SNARK met
+setup importeren in een project waarvan het bestaansrecht is dat het géén SNARK
+nodig heeft, is het doel opofferen aan het middel.
 
 Hun stack is geoptimaliseerd voor een eigenschap die wij expres niet willen.
 Dat is geen trots, dat is een rekensom. **Wat we wél overnemen: hun audit-lat
-(drie audits, niet nul) en hun inzicht dat één boom veel gelijktijdige schrijvers
-moet kunnen hebben.**
+(drie audits, niet nul) en hun inzicht dat één boom veel gelijktijdige
+schrijvers moet kunnen hebben.**
 
 ## 3c. Concurrentie: acceptatievenster in plaats van bewijstransformatie
 
@@ -413,9 +416,10 @@ publiek: één nullifier (`Note::nullifier`, v0) en één nieuwe commitment. Dat
 die nullifier zonder het geheim niet aan een commitment te koppelen is, is
 geen vastgestelde eigenschap maar een aanname: een onvoorspelbaar geheim en
 een hash die niets over zijn invoer prijsgeeft (rustdoc in `src/note.rs`);
-deze repo bevat er geen bewijs voor. Een waarnemer ziet dus alleen: in emmer (epoch, niveau)
-is er één verbrand en één bijgekomen. Het aantal noten van dát niveau in dát
-epoch bepaalt hoeveel kandidaten hij heeft om input aan output te koppelen.
+deze repo bevat er geen bewijs voor. Een waarnemer ziet dus alleen: in emmer
+(epoch, niveau) is er één verbrand en één bijgekomen. Het aantal noten van dát
+niveau in dát epoch bepaalt hoeveel kandidaten hij heeft om input aan output te
+koppelen.
 
 **De eigenschap die dit bruikbaar maakt: de anonimiteitset kost nul extra
 bytes.** Hij groeit met gebruik, niet met transactiegrootte. Vergelijk dat met
@@ -433,9 +437,10 @@ van dit model tot en met stap 6; die code bestaat niet meer.
 
 **De knop is dus een gebruiksknop, en die is een productkeuze:** in dit model
 was dat `DOELMENIGTE = 100`; die constante stond tot en met stap 6 in
-`src/spend.rs` en bestaat niet meer. Daaronder is een besteding bij benadering koppelbaar;
-de code dwingt niets af, want de keten kan niet weten hoeveel opnames "genoeg"
-zijn. Wat wél afgedwongen wordt: niveauvastheid per besteding, en dubbeluitgave.
+`src/spend.rs` en bestaat niet meer. Daaronder is een besteding bij benadering
+koppelbaar; de code dwingt niets af, want de keten kan niet weten hoeveel
+opnames "genoeg" zijn. Wat wél afgedwongen wordt: niveauvastheid per besteding,
+en dubbeluitgave.
 
 **Twee grootheden, niet één.** Mijn eerste testbewering ("besteden houdt de
 emmer gelijk groot") faalde, en kwam door mijn eigen redenering: een besteding
@@ -449,8 +454,8 @@ binnen (epoch, niveau) — sterker naarmate de emmer voller is, onder de
 aannames hierboven. Er is geen audit-laag en geen auditsleutel:
 `Note::audit_tag` bestaat, wordt alleen in de tests van `src/note.rs`
 aangeroepen, en hoe een auditor een tag herkent staat niet in de code. Voor
-onkoppelbaarheid zonder aannames is nog steeds een één-van-N-bewijs nodig, en dat
-bestaat post-kwantum niet in geauditeerde vorm.
+onkoppelbaarheid zonder aannames is nog steeds een één-van-N-bewijs nodig, en
+dat bestaat post-kwantum niet in geauditeerde vorm.
 
 ## 4. Afhankelijkheden en veiligheid
 
@@ -596,7 +601,8 @@ cargo test --offline                       # zonder netwerk
 ```
 
 Werkregels die bij dit werk zijn opgedaan en helpen:
-- **Geen handgeschreven cryptografie.** Bekende, gepinde crates; geen eigen cryptografie.
+- **Geen handgeschreven cryptografie.** Bekende, gepinde crates; geen eigen
+  cryptografie.
 - **Aanvallen eerst laten falen, dan pas repareren.** Beide gaten in de boom
   waren onzichtbaar gebleven zonder die volgorde.
 - **Metingen leven in de repo** (`src/bench.rs`, `#[ignore]`), niet in /tmp.

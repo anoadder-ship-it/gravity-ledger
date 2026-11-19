@@ -230,7 +230,8 @@ impl Ledger {
         let r = Record::from_bytes(record)?;
         // 2. Sleutel inlezen.
         Ed25519::lees_sleutel(&r.pk).map_err(|_| B::OngeldigeSleutel)?; // [C2]
-                                                                        // 3. Eigenaar en commitment van de invoer, door de keten uitgerekend.
+
+        // 3. Eigenaar en commitment van de invoer, door de keten uitgerekend.
         let owner = owner_hash(Ed25519::SCHEMA, &r.pk);
         let invoer = Note {
             level: r.niveau,
@@ -256,7 +257,8 @@ impl Ledger {
           // 7. Handtekening over exact het digest van 64 byte.
         let m = bericht(&self.chain, r.versie, r.schema, &n, r.niveau, &r.c_uit);
         Ed25519::verifieer(&r.pk, &m, &r.handtekening).map_err(|_| B::Handtekening)?; // [C7]
-                                                                                      // 8. Emmer van de invoer, en iets besteedbaars erin.
+
+        // 8. Emmer van de invoer, en iets besteedbaars erin.
         let emmer = *self.minted.get(index).ok_or(B::GeenLid)?;
         if spend::live(&self.buckets, &self.spent, emmer.0, emmer.1)
             .map_err(|_| B::NegatieveEmmer)?

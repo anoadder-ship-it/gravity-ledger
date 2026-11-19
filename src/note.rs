@@ -93,12 +93,13 @@ impl Note {
     /// De gedachte erachter: waar CryptoNote een key image `I = x·Hp(P)` op een
     /// elliptische kromme gebruikt, is dit een hash over het geheim (`dsh`,
     /// BLAKE3-XOF, 64 byte, domeintag `GL/nullify/v0`). Hij is deterministisch
-    /// uit keten, niveau, epoch en geheim, dus een tweede besteding van dezelfde noot geeft dezelfde
-    /// N. Dat N zonder het geheim niet aan de commitment te koppelen is, steunt
-    /// op dezelfde aannames als de verborgenheid van de commitment
-    /// (onvoorspelbaar geheim, een hash die niets over zijn invoer prijsgeeft).
-    /// Deze repo bevat daar geen bewijs voor, en geen analyse van de sterkte
-    /// van deze constructie tegen een quantumcomputer.
+    /// uit keten, niveau, epoch en geheim, dus een tweede besteding van
+    /// dezelfde noot geeft dezelfde N. Dat N zonder het geheim niet aan de
+    /// commitment te koppelen is, steunt op dezelfde aannames als de
+    /// verborgenheid van de commitment (onvoorspelbaar geheim, een hash die
+    /// niets over zijn invoer prijsgeeft). Deze repo bevat daar geen bewijs
+    /// voor, en geen analyse van de sterkte van deze constructie tegen een
+    /// quantumcomputer.
     pub fn nullifier(&self, chain: &ChainId) -> Digest {
         dsh(
             b"GL/nullify/v0",
