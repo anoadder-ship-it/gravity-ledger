@@ -178,11 +178,12 @@ openbare API.
   geven nooit een paniek en wijzigen de toestand nooit.
 - Bewijsformaat (stap 6): alleen siblings, 64 byte per niveau; de richting volgt
   uit de index, dus geen enkele bitverdraaiing van een echt bewijs wordt nog
-  aanvaard. Een pad langer dan `MAX_DIEPTE` (64) wordt geweigerd. De velden van
-  `Ledger` en `Accumulator::push` zijn `pub(crate)`; een blad komt alleen via
-  `blad()` in de boom. Van buiten de crate verandert de toestand van een
-  ledger alleen via `Ledger::mint` (ook via `mint_to_ledger`, dat het
-  aanroept) en `Ledger::besteed`.
+  aanvaard. Draadformaat (`Proof::to_bytes`): de siblings achter elkaar, van
+  onderaf, 64 byte per niveau. Een pad langer dan `MAX_DIEPTE` (64) wordt
+  geweigerd. De velden van `Ledger` en `Accumulator::push` zijn `pub(crate)`;
+  een blad komt alleen via `blad()` in de boom. Van buiten de crate verandert de
+  toestand van een ledger alleen via `Ledger::mint` (ook via `mint_to_ledger`,
+  dat het aanroept) en `Ledger::besteed`.
 
 **Niet gebouwd, niet beweren:** anonieme bestedingslaag, Solana-programma,
 netwerk-integratie, post-kwantum handtekening (Falcon) in productiecode.
